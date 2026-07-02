@@ -69,7 +69,7 @@ export type MockWalletClient = Omit<ViemWalletClient, "writeContract"> & {
  *
  * Defaults:
  * multicall            → resolves to [] (no due vaults)
- * estimateContractGas  → resolves to a simulated baseline gas value (e.g., 200,000n)
+ * estimateContractGas  → resolves to a simulated baseline gas value (e.g., 70_000_000n / 100n)
  * waitForTransactionReceipt → resolves to a minimal success receipt
  *
  * Override per-test:
@@ -78,7 +78,7 @@ export type MockWalletClient = Omit<ViemWalletClient, "writeContract"> & {
 export function createMockPublicClient(): MockPublicClient {
   return {
     multicall: vi.fn().mockResolvedValue([]),
-    estimateContractGas: vi.fn().mockResolvedValue(200_000n),
+    estimateContractGas: vi.fn().mockResolvedValue(70_000_000n / 100n), // default: 700,000 gas — override per test
     waitForTransactionReceipt: vi.fn().mockResolvedValue({
       blockNumber:     100n,
       gasUsed:         91_000n,
