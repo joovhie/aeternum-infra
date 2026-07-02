@@ -3,9 +3,9 @@ import type { Vault } from "@aeternum/db";
 
 /**
  * Integration: batch boundary and failure isolation at scale.
- * TX_BATCH_SIZE in executor.ts is capped at 20, so any cycle with more
- * than 20 due wallets is split into multiple sequential transactions.
- * This test exercises that split with 25 confirmed-due wallets and verifies
+ * MAX_CALLS_PER_TX in executor.ts is capped at 120, so any cycle with more
+ * than 120 due wallets is split into multiple sequential transactions.
+ * This test exercises that split with 125 confirmed-due wallets and verifies
  * that a single backup-address failure inside one batch does not affect
  * the other wallets in the same batch or in the following batch —
  * Multicall3's allowFailure: true is what makes this isolation possible.
@@ -63,7 +63,7 @@ describe("integration: batch execution at scale with failure isolation", () => {
     db = createMockDb();
     publicClient = createMockPublicClient();
     walletClient = createMockWalletClient();
-    wallets = makeAddresses(25);
+    wallets = makeAddresses(125); // Exceeds the 120 ceiling to force chunking
 
     mockGetDueVaults.mockResolvedValue(wallets.map(vaultRow));
     publicClient.multicall.mockResolvedValue(
@@ -71,13 +71,13 @@ describe("integration: batch execution at scale with failure isolation", () => {
     );
   });
 
-  it("scan confirms all 25 wallets as due", async () => {
+  it("scan confirms all 125 wallets as due", async () => {
     const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
 
-    expect(dueWallets).toHaveLength(25);
+    expect(dueWallets).toHaveLength(125);
   });
 
-  it("execute splits 25 confirmed wallets into batches of 20 and 5", async () => {
+  it("execute splits 125 confirmed wallets into batches of 120 and 5", async () => {
     walletClient.writeContract.mockResolvedValue(TX_HASH_1);
     publicClient.waitForTransactionReceipt.mockResolvedValue(createReceipt());
     mockParseEventLogs.mockReturnValue([]);
@@ -86,7 +86,7 @@ describe("integration: batch execution at scale with failure isolation", () => {
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     expect(walletClient.writeContract).toHaveBeenCalledTimes(2);
-    expect(walletClient.writeContract.mock.calls[0][0].args[0]).toHaveLength(20);
+    expect(walletClient.writeContract.mock.calls[0][0].args[0]).toHaveLength(120);
     expect(walletClient.writeContract.mock.calls[1][0].args[0]).toHaveLength(5);
   });
 
@@ -115,7 +115,7 @@ describe("integration: batch execution at scale with failure isolation", () => {
       .mockResolvedValueOnce(createReceipt({ transactionHash: TX_HASH_1, logs: [{ fake: "log" }] }))
       .mockResolvedValueOnce(createReceipt({ transactionHash: TX_HASH_2, logs: [{ fake: "log" }] }));
 
-    // First batch (20 wallets): 19 succeed, 1 fails.
+    // First batch (120 wallets): 119 succeed, 1 fails.
     // Second batch (5 wallets): all 5 succeed.
     let parseCallCount = 0;
     mockParseEventLogs.mockImplementation(({ eventName }: any): any => {
@@ -124,7 +124,7 @@ describe("integration: batch execution at scale with failure isolation", () => {
 
       if (isFirstBatch) {
         if (eventName === "RecoveryExecuted") {
-          return Array.from({ length: 19 }, () => eventLogsByName("RecoveryExecuted")[0]);
+          return Array.from({ length: 119 }, () => eventLogsByName("RecoveryExecuted")[0]);
         }
         if (eventName === "RecoveryFailed") return [failedLog];
         return [];
@@ -140,10 +140,10 @@ describe("integration: batch execution at scale with failure isolation", () => {
     const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
-    // First batch summary: 19 recovered, 1 failed
+    // First batch summary: 119 recovered, 1 failed
     expect(logger.info).toHaveBeenCalledWith(
       "Executor: batch confirmed",
-      expect.objectContaining({ recovered: 19, failed: 1, abandoned: 0, submitted: 20 }),
+      expect.objectContaining({ recovered: 119, failed: 1, abandoned: 0, submitted: 120 }),
     );
 
     // Second batch summary: 5 recovered, 0 failed — proves the second
@@ -190,7 +190,7 @@ describe("integration: batch execution at scale with failure isolation", () => {
 
     expect(logger.info).toHaveBeenCalledWith(
       "Executor: beginning execution",
-      { totalWallets: 25, totalBatches: 2 },
+      { totalWallets: 125, totalBatches: 2 },
     );
   });
 });

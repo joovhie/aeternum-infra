@@ -54,12 +54,12 @@ describe("executor.execute", () => {
 
   // --- Single batch ---
 
-  describe("single batch (<= 20 wallets)", () => {
-    it("submits exactly one transaction for 5 wallets", async () => {
+  describe("single batch (<= 120 wallets)", () => {
+    it("submits exactly one transaction for 100 wallets", async () => {
       walletClient.writeContract.mockResolvedValue(TX_HASH_1);
       publicClient.waitForTransactionReceipt.mockResolvedValue(createReceipt());
 
-      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(5));
+      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(100));
 
       expect(walletClient.writeContract).toHaveBeenCalledOnce();
       expect(publicClient.waitForTransactionReceipt).toHaveBeenCalledOnce();
@@ -117,47 +117,52 @@ describe("executor.execute", () => {
       );
     });
 
-    it("passes the estimated gas (or padded gas) into the writeContract configuration", async () => {
-      // Force a unique gas value to ensure it's forwarded correctly
-      const mockGasEstimate = 333_333n;
-      publicClient.estimateContractGas.mockResolvedValue(mockGasEstimate);
+    it("applies the 30% buffer to the estimated gas before writeContract", async () => {
+      publicClient.estimateContractGas.mockResolvedValue(100_000n);
 
       await execute(walletClient, publicClient, CONTRACT_ADDRESS, [WALLET_A]);
 
       const callArgs = walletClient.writeContract.mock.calls[0][0];
-      
-      // If your implementation pads the gas (e.g., estimate * 1.2n), adjust this match
-      // If it passes it raw, expect.toEqual(mockGasEstimate) or expect.toBeGreaterThan(0n) works perfectly
-      expect(callArgs.gas).toBeDefined();
-      expect(BigInt(callArgs.gas)).toBeGreaterThanOrEqual(mockGasEstimate);
+      // 100_000n * 130n / 100n = 130_000n
+      expect(callArgs.gas).toBe(130_000n);
+    });
+
+    it("clamps the buffered gas to MAX_GAS_PER_TX when the estimate is anomalously high", async () => {
+      // 100_000_000n * 1.3 = 130_000_000n, which exceeds the 20_000_000n ceiling
+      publicClient.estimateContractGas.mockResolvedValue(100_000_000n);
+
+      await execute(walletClient, publicClient, CONTRACT_ADDRESS, [WALLET_A]);
+
+      const callArgs = walletClient.writeContract.mock.calls[0][0];
+      expect(callArgs.gas).toBe(20_000_000n);
     });
   });
 
   // --- Batch splitting ---
 
-  describe("batch splitting (> 20 wallets)", () => {
-    it("splits 25 wallets into batches of 20 and 5", async () => {
-      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(25));
+  describe("batch splitting (> 120 wallets)", () => {
+    it("splits 130 wallets into batches of 120 and 10", async () => {
+      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(130));
 
       expect(walletClient.writeContract).toHaveBeenCalledTimes(2);
       const firstBatch  = walletClient.writeContract.mock.calls[0][0].args[0];
       const secondBatch = walletClient.writeContract.mock.calls[1][0].args[0];
-      expect(firstBatch).toHaveLength(20);
-      expect(secondBatch).toHaveLength(5);
+      expect(firstBatch).toHaveLength(120);
+      expect(secondBatch).toHaveLength(10);
     });
 
-    it("splits exactly 40 wallets into two full batches of 20", async () => {
-      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(40));
+    it("splits exactly 240 wallets into two full batches of 120", async () => {
+      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(240));
 
       expect(walletClient.writeContract).toHaveBeenCalledTimes(2);
       const firstBatch  = walletClient.writeContract.mock.calls[0][0].args[0];
       const secondBatch = walletClient.writeContract.mock.calls[1][0].args[0];
-      expect(firstBatch).toHaveLength(20);
-      expect(secondBatch).toHaveLength(20);
+      expect(firstBatch).toHaveLength(120);
+      expect(secondBatch).toHaveLength(120);
     });
 
-    it("does not split exactly 20 wallets into multiple batches", async () => {
-      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(20));
+    it("does not split exactly 120 wallets into multiple batches", async () => {
+      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(120));
 
       expect(walletClient.writeContract).toHaveBeenCalledOnce();
     });
@@ -174,7 +179,7 @@ describe("executor.execute", () => {
         return createReceipt();
       });
 
-      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(25));
+      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(130));
 
       expect(callOrder).toEqual(["write", "receipt", "write", "receipt"]);
     });
@@ -282,7 +287,7 @@ describe("executor.execute", () => {
         .mockRejectedValueOnce(new Error("nonce too low"))
         .mockResolvedValueOnce(TX_HASH_2);
 
-      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(25));
+      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(130));
 
       expect(logger.error).toHaveBeenCalledWith(
         "Executor: batch submission failed",
@@ -298,14 +303,14 @@ describe("executor.execute", () => {
         .mockRejectedValueOnce(new Error("gas estimation reverted: execution reverted"))
         .mockResolvedValueOnce(200_000n);
 
-      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(25));
+      await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(130));
 
       // Verify the error was logged for the first batch
       expect(logger.error).toHaveBeenCalledWith(
         "Executor: batch submission failed",
-        expect.objectContaining({ 
-          batch: 1, 
-          error: "gas estimation reverted: execution reverted" 
+        expect.objectContaining({
+          batch: 1,
+          error: "gas estimation reverted: execution reverted"
         }),
       );
 
@@ -352,11 +357,11 @@ describe("executor.execute", () => {
   // --- Top-level progress logging ---
 
   it("logs total wallet and batch counts at the start of execution", async () => {
-    await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(25));
+    await execute(walletClient, publicClient, CONTRACT_ADDRESS, makeAddresses(130));
 
     expect(logger.info).toHaveBeenCalledWith(
       "Executor: beginning execution",
-      { totalWallets: 25, totalBatches: 2 },
+      { totalWallets: 130, totalBatches: 2 },
     );
   });
 });
