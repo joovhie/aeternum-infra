@@ -12,10 +12,37 @@
  *   handled independently — the same isolation guarantee the contract
  *   provides through _executeRecovery's silent-return design.
  *
- * TX_BATCH_SIZE:
- *   Capped at 20 wallets per transaction. At ~91k gas per recovery
- *   (measured), 20 × 91k = ~1.8M gas per tx — well within the 30M
- *   block gas limit. Adjust if gas conditions change.
+ * MAX_CALLS_PER_TX:
+ *   Capped at 120 wallets per transaction. This is a hard safety ceiling,
+ *   independent of KEEPER_BATCH_SIZE (which only controls how many
+ *   candidates are pulled from the DB per scan — see scanner.ts). Raising
+ *   KEEPER_BATCH_SIZE for DB scan efficiency must never silently grow the
+ *   number of calls submitted in a single transaction.
+ *
+ *   Derivation: 120 × 90,988 gas (measured triggerRecovery max, full
+ *   execution path) × 1.3 gas buffer ≈ 14,194,128 gas — roughly 23.7% of
+ *   the current 60M mainnet/Sepolia block gas limit. Comfortable headroom
+ *   even under network congestion. If the wallets confirmed due in a
+ *   cycle exceed this cap, they are split into multiple sequential
+ *   transactions.
+ *
+ * GAS ESTIMATION:
+ *   Before submission, gas is estimated per-batch via estimateContractGas
+ *   and inflated by GAS_BUFFER_NUMERATOR / GAS_BUFFER_DENOMINATOR (30%).
+ *   This mitigates a specific failure mode observed during integration
+ *   testing: eth_estimateGas's binary search does not always account
+ *   precisely enough for EIP-150's 63/64ths gas-forwarding rule across
+ *   nested calls (Multicall3 → AeternumVault → backup address), which
+ *   caused individual sub-calls to run out of gas and revert on-chain
+ *   even though the parent aggregate3 transaction succeeded. The buffer
+ *   is an empirical safety margin, not a formal guarantee — retune
+ *   GAS_BUFFER_NUMERATOR if contract logic changes in a way that shifts
+ *   per-call gas cost.
+ *
+ *   MAX_GAS_PER_TX is an independent hard ceiling applied after
+ *   buffering, as defense in depth against an anomalous estimate (RPC
+ *   glitch, a backup address with a deliberately expensive receive())
+ *   being submitted unchecked.
  *
  * NONCE SAFETY:
  *   Batches are submitted sequentially — each awaits a receipt before
@@ -34,7 +61,19 @@ import {
 import { logger } from "./logger.js";
 import type { Address } from "./scanner.js";
 
-const TX_BATCH_SIZE = 20;
+// Hard ceiling on calls submitted in a single transaction. Decoupled from
+// KEEPER_BATCH_SIZE (DB scan limit) by design — see file header.
+const MAX_CALLS_PER_TX = 120;
+
+// Gas estimate buffer: estimatedGas × 130 / 100 = 30% headroom.
+const GAS_BUFFER_NUMERATOR = 130n;
+const GAS_BUFFER_DENOMINATOR = 100n;
+
+// Independent safety ceiling applied after buffering. Expected buffered
+// max at MAX_CALLS_PER_TX is ~14.2M gas — this leaves headroom for
+// estimation variance while still catching a truly anomalous estimate,
+// comfortably under the 60M block gas limit.
+const MAX_GAS_PER_TX = 20_000_000n;
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const result: T[][] = [];
@@ -47,13 +86,14 @@ function chunk<T>(arr: T[], size: number): T[][] {
 /**
  * Executes recovery for a confirmed list of due wallet addresses.
  *
- * Wallets are split into batches of TX_BATCH_SIZE and submitted via
- * Multicall3.aggregate3. RecoveryExecuted, RecoveryFailed, and
- * RecoveryAbandoned events are parsed from each receipt and logged
- * individually so the outcome of every wallet is observable.
+ * Wallets are split into batches of at most MAX_CALLS_PER_TX and
+ * submitted via Multicall3.aggregate3, with gas estimated and buffered
+ * per batch. RecoveryExecuted, RecoveryFailed, and RecoveryAbandoned
+ * events are parsed from each receipt and logged individually so the
+ * outcome of every wallet is observable.
  *
  * @param walletClient    Signing client for transaction submission.
- * @param publicClient    Read client for receipt retrieval.
+ * @param publicClient    Read client for gas estimation and receipt retrieval.
  * @param contractAddress AeternumVault contract address.
  * @param wallets         Onchain-confirmed due wallet addresses from scanner.
  */
@@ -65,7 +105,7 @@ export async function execute(
 ): Promise<void> {
   if (wallets.length === 0) return;
 
-  const batches = chunk(wallets, TX_BATCH_SIZE);
+  const batches = chunk(wallets, MAX_CALLS_PER_TX);
 
   logger.info("Executor: beginning execution", {
     totalWallets: wallets.length,
@@ -92,8 +132,8 @@ export async function execute(
     }));
 
     try {
-      // 1. Estimate the total gas needed for the Multicall transaction.
-      // During simulation, the node grants plenty of gas so the inner execution succeeds.
+      // 1. Estimate gas for the full batch. Simulated from the keeper's
+      //    own account since gas cost can be sender-context-dependent.
       const estimatedGas = await publicClient.estimateContractGas({
         address: MULTICALL3_ADDRESS,
         abi: MULTICALL3_ABI,
@@ -102,10 +142,19 @@ export async function execute(
         account: walletClient.account,
       });
 
-      // 2. Add a 30% buffer to override EIP-150 (63/64ths rule) overhead during sub-calls
-      const gasWithBuffer = (estimatedGas * 130n) / 100n;
+      // 2. Apply the 30% buffer, then clamp to the hard ceiling.
+      const bufferedGas =
+        (estimatedGas * GAS_BUFFER_NUMERATOR) / GAS_BUFFER_DENOMINATOR;
+      const gasWithBuffer =
+        bufferedGas > MAX_GAS_PER_TX ? MAX_GAS_PER_TX : bufferedGas;
 
-      // 3. Submit transaction with the safe, padded gas limit
+      logger.debug("Executor: gas estimated", {
+        batch: batchNum,
+        estimatedGas: estimatedGas.toString(),
+        gasWithBuffer: gasWithBuffer.toString(),
+      });
+
+      // 3. Submit with the buffered, capped gas limit.
       const hash = await walletClient.writeContract({
         address: MULTICALL3_ADDRESS,
         abi: MULTICALL3_ABI,
