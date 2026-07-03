@@ -38,7 +38,7 @@ DATABASE_URL=YourDatabaseUrl
 # Keeper-specific variables
 KEEPER_PRIVATE_KEY=YourPrivateKeyHere
 KEEPER_POLL_INTERVAL_MS=12000
-KEEPER_BATCH_SIZE=120
+KEEPER_BATCH_SIZE=600
 ```
 
 ## Scripts
@@ -59,8 +59,8 @@ pnpm test:coverage     # Run tests with coverage report
 ## Configuration
 
 - **Poll interval**: `KEEPER_POLL_INTERVAL_MS` (default: 12000ms, synced to L1 12s heartbeat)
-- **Batch size**: `KEEPER_BATCH_SIZE` (max vaults pulled from DB per scan, recommended: 120)
-- **Batch execution**: 20 wallets per transaction via Multicall3
+- **Batch size**: `KEEPER_BATCH_SIZE` (max vaults pulled from DB per scan, recommended: 600)
+- **Batch execution**: 120 wallets per transaction via Multicall3 (MAX_CALLS_PER_TX)
 - **Gas buffer**: 30% buffer on estimated gas to handle EIP-150 overhead
 
 ## How It Works
