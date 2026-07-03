@@ -5,7 +5,7 @@
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "build": "turbo build",
-    "dev": "pnpm --recursive dev",
+    "dev": "turbo dev",
     "lint": "turbo lint",
     "test": "turbo test",
     "clean": "turbo clean",
