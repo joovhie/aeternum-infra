@@ -1,9 +1,0 @@
-[build]
-rootDirectory = "apps/indexer"
-
-[deploy]
-startCommand = "pnpm start"
-healthcheckPath = "/health"
-healthcheckTimeout = 60
-restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 5
