@@ -9,9 +9,7 @@
     "lint": "turbo lint",
     "test": "turbo test",
     "clean": "turbo clean",
-    "format": "prettier --write \"**/*.{ts,json}\"",
-    "render:build": "pnpm install && turbo build",
-    "render:start": "node scripts/render-runner.mjs"
+    "format": "prettier --write \"**/*.{ts,json}\""
   },
   "devDependencies": {
     "dotenv-cli": "^11.0.0",
