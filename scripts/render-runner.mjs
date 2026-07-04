@@ -50,8 +50,8 @@ function launchWorker(name, command, args, internalPort) {
 // First: Fire up Ponder so it has maximum headroom to build/verify schemas
 launchWorker('Ponder Indexer', 'pnpm', ['--filter', '@aeternum/indexer', 'run', 'start:prod'], '10001');
 
-// Second: Delay Keeper engine by 30 seconds until Ponder completes initialization
-console.log('[Orchestrator]: Staggering launch sequence. Keeper Engine queued for T+25s...');
+// Second: Delay Keeper engine by 3 minutes until Ponder completes initialization
+console.log('[Orchestrator]: Staggering launch sequence. Keeper Engine queued for T+3m...');
 setTimeout(() => {
   launchWorker('Keeper Engine', 'pnpm', ['--filter', '@aeternum/keeper', 'run', 'start:prod'], '10002');
-}, 30000);
+}, 180000);
