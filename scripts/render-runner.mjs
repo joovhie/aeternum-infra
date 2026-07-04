@@ -8,7 +8,7 @@ console.log('===================================================');
 console.log('   AETERNUM INFRASTRUCTURE UNIFIED ORCHESTRATOR   ');
 console.log('===================================================');
 
-// 1. Master health server takes Render's true port (10000)
+// 1. Health server binds to Render's port immediately
 http.createServer((req, res) => {
   if (req.url === '/healthz' || req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -21,7 +21,7 @@ http.createServer((req, res) => {
   console.log(`[Orchestrator]: Health server monitoring port :${PORT}`);
 });
 
-// 2. Spawn helper with custom environment injection
+// 2. Spawn helper
 function launchWorker(name, command, args, internalPort) {
   console.log(`[Orchestrator]: Triggering launch cycle for ${name}...`);
   
@@ -30,7 +30,7 @@ function launchWorker(name, command, args, internalPort) {
     shell: true,
     env: {
       ...process.env,
-      PORT: internalPort // Overrides port 10000 so children don't collide
+      PORT: internalPort
     }
   });
 
@@ -46,6 +46,12 @@ function launchWorker(name, command, args, internalPort) {
   return processInstance;
 }
 
-// 3. Launch sub-processes on safe, isolated internal ports
+// 3. Sequential Boot Sequence to prevent memory spikes colliding
+// First: Fire up Ponder so it has maximum headroom to build/verify schemas
 launchWorker('Ponder Indexer', 'pnpm', ['--filter', '@aeternum/indexer', 'run', 'start:prod'], '10001');
-launchWorker('Keeper Engine', 'pnpm', ['--filter', '@aeternum/keeper', 'run', 'start:prod'], '10002');
+
+// Second: Delay Keeper engine by 30 seconds until Ponder completes initialization
+console.log('[Orchestrator]: Staggering launch sequence. Keeper Engine queued for T+25s...');
+setTimeout(() => {
+  launchWorker('Keeper Engine', 'pnpm', ['--filter', '@aeternum/keeper', 'run', 'start:prod'], '10002');
+}, 30000);
