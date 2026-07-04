@@ -7,6 +7,7 @@
     "dev":     "dotenv -e ../../.env.local -e .env.local -- ponder dev",
     "build":   "dotenv -e ../../.env.local -e .env.local -- ponder codegen",
     "start":   "dotenv -e ../../.env.local -e .env.local -- ponder start",
+    "start:prod": "ponder start",
     "codegen": "dotenv -e ../../.env.local -e .env.local -- ponder codegen"
   },
   "dependencies": {

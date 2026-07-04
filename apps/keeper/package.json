@@ -6,6 +6,7 @@
   "scripts": {
     "dev":   "dotenv -e ../../.env.local -e .env.local -- tsx src/index.ts",
     "start": "dotenv -e ../../.env.local -e .env.local -- node dist/index.js",
+    "start:prod": "node dist/index.js || node dist/src/index.js",
     "build": "tsc",
     "lint":  "tsc --noEmit",
     "clean": "rm -rf dist",
