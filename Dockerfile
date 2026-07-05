@@ -29,7 +29,8 @@ COPY apps/keeper/ ./apps/keeper/
 RUN pnpm --filter @aeternum/config build && \
     pnpm --filter @aeternum/blockchain build && \
     pnpm --filter @aeternum/db build && \
-    pnpm --filter @aeternum/keeper build
+    pnpm --filter @aeternum/keeper build && \
+    ls /app/apps/keeper/dist/index.js
 
 EXPOSE 3001
 
