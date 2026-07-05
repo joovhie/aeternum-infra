@@ -33,7 +33,7 @@ RUN pnpm --filter @aeternum/config build && \
 # --- Isolate the keeper application ---
 # This command strips away the monorepo structure and outputs a fully flat,
 # production-ready standalone directory with un-broken dependencies.
-RUN pnpm --filter=@aeternum/keeper --prod deploy /app/isolated
+RUN pnpm --filter=@aeternum/keeper --prod deploy --legacy /app/isolated
 
 # =============================================================================
 # Production stage — Completely self-contained, no broken symlinks
