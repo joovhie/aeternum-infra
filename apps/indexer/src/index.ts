@@ -27,6 +27,7 @@ ponder.on("AeternumVault:RecoveryRegistered", async ({ event, context }) => {
     lastActivityTimestamp: event.block.timestamp,
     isRecovered: false,
     isAbandoned: false,
+    isCancelled: false,
     createdAtBlock: event.block.number,
   });
 
