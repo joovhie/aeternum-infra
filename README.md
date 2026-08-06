@@ -105,7 +105,7 @@ Shared variables live in the root `.env`. App-specific variables live in each ap
 dotenv -e ../../.env.local -e .env.local -- <command>
 ```
 
-On Railway, the equivalent is a **Shared Variable Group** referenced by each service, with app-specific variables set directly on that service. See each app's own README for its specific variables.
+On Render, the equivalent is a **Shared Variable Group** referenced by each service, with app-specific variables set directly on that service. See each app's own README for its specific variables.
 
 ## Commands
 
