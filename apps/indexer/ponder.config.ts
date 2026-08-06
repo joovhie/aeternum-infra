@@ -14,9 +14,9 @@ export default createConfig({
     sepolia: {
       id: parseInt(process.env.CHAIN_ID || "11155111"),
       rpc: process.env.RPC_URL,
-      maxRequestsPerSecond: 10,
+      maxRequestsPerSecond: 2,
       // Force Ponder to fetch logs in smaller chunks to avoid payload timeouts
-      ethGetLogsBlockRange: 1000, 
+      ethGetLogsBlockRange: 500, 
     },
   },
   contracts: {
