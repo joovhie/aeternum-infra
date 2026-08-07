@@ -29,7 +29,7 @@ export const CONTRACT_ADDRESS =
 export const validProcessEnv: Record<string, string> = {
   // Shared vars (normally validated by @aeternum/config)
   CHAIN_ID:               "11155111",
-  RPC_URL:                "https://ethereum-sepolia-rpc.publicnode.com",
+  RPC_URL:                "https://sepolia.infura.io/v3/ef346855208f4cd486215b8a53a5ecf0",
   CONTRACT_ADDRESS:       CONTRACT_ADDRESS,
   CONTRACT_DEPLOY_BLOCK:  "11140604",
   DATABASE_URL:           "postgresql://user:password@localhost:5432/aeternum",
@@ -46,7 +46,7 @@ export const validProcessEnvNoPrefix: Record<string, string> = {
 
 export const mockSharedEnv = {
   CHAIN_ID:              11155111,
-  RPC_URL:               "https://ethereum-sepolia-rpc.publicnode.com",
+  RPC_URL:               "https://sepolia.infura.io/v3/ef346855208f4cd486215b8a53a5ecf0",
   CONTRACT_ADDRESS:      CONTRACT_ADDRESS,
   CONTRACT_DEPLOY_BLOCK: 11140604,
   DATABASE_URL:          "postgresql://user:password@localhost:5432/aeternum",
