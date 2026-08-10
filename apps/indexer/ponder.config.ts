@@ -6,27 +6,17 @@
  * tracking targets for the Ethereum Sepolia testnet.
  */
 
-import { createConfig, loadBalance, rateLimit } from "ponder";
-import { http } from "viem";
+import { createConfig } from "ponder";
 import { AETERNUM_VAULT_ABI } from "@aeternum/blockchain";
 
 export default createConfig({
   chains: {
     sepolia: {
       id: parseInt(process.env.CHAIN_ID || "11155111"),
-      // Load-balance across two providers so a burst of concurrent
-      // eth_getLogs calls (one per event filter) doesn't all land on
-      // the same provider and trip its per-second credit ceiling.
-      rpc: loadBalance([
-        rateLimit(http(process.env.RPC_URL), {
-          requestsPerSecond: 1, // Infura free tier: 500 credits/s ÷ 255 credits per eth_getLogs
-        }),
-        rateLimit(http("https://ethereum-sepolia-rpc.publicnode.com"), {
-          requestsPerSecond: 2,
-        }),
-      ]),
+      rpc: process.env.RPC_URL,
+      maxRequestsPerSecond: 10,
       // Force Ponder to fetch logs in smaller chunks to avoid payload timeouts
-      ethGetLogsBlockRange: 1000,
+      ethGetLogsBlockRange: 1000, 
     },
   },
   contracts: {
