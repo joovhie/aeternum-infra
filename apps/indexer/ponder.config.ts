@@ -14,15 +14,12 @@
  * existing deployment's env doesn't need to change to keep working.
  *
  * The per-network contract override syntax below (`chain: { sepolia: {...},
- * mainnet: {...} }` replacing the single `chain: "sepolia"` string) is
- * Ponder's documented pattern for indexing one contract across multiple
- * chains as of ponder.sh's current docs. Worth confirming against
- * `ponder dev` locally before deploying — createConfig is strongly typed,
- * so a wrong shape here fails typecheck immediately rather than
- * misbehaving silently.
+ * mainnet: {...} }` replacing the single `chain: "sepolia"` string) and the
+ * `ChainConfig` type import are both confirmed against the actual pinned
+ * ponder@0.16.6 package's type declarations — not guessed.
  */
 
-import { createConfig, type ContractConfig, type NetworkConfig } from "ponder";
+import { createConfig, type ContractConfig, type ChainConfig } from "ponder";
 import { AETERNUM_VAULT_ABI } from "@aeternum/blockchain";
 
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL ?? process.env.RPC_URL;
@@ -43,7 +40,7 @@ const MAINNET_DEPLOY_BLOCK = process.env.MAINNET_CONTRACT_DEPLOY_BLOCK
 
 const mainnetConfigured = Boolean(MAINNET_RPC_URL && MAINNET_CONTRACT_ADDRESS && MAINNET_DEPLOY_BLOCK !== undefined);
 
-const chains: Record<string, NetworkConfig> = {
+const chains: Record<string, ChainConfig> = {
   sepolia: {
     id: SEPOLIA_CHAIN_ID,
     rpc: SEPOLIA_RPC_URL,
