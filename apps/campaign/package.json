@@ -1,0 +1,44 @@
+{
+  "name": "@aeternum/campaign",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev":              "dotenv -e ../../.env.local -e .env.local -- tsx src/index.ts",
+    "start":            "node dist/index.js",
+    "build":            "tsc",
+    "lint":             "tsc --noEmit",
+    "clean":            "rm -rf dist",
+    "test":             "vitest run",
+    "test:unit":        "vitest run test/unit",
+    "test:watch":       "vitest",
+    "test:coverage":    "vitest run --coverage",
+    "db:generate":      "dotenv -e ../../.env.local -e .env.local -- drizzle-kit generate",
+    "db:migrate":       "dotenv -e ../../.env.local -e .env.local -- drizzle-kit migrate",
+    "job:nightly-scoring":  "dotenv -e ../../.env.local -e .env.local -- tsx src/jobs/nightlyScoring.ts",
+    "job:monthly-liveness": "dotenv -e ../../.env.local -e .env.local -- tsx src/jobs/monthlyLiveness.ts",
+    "job:galxe-sync":       "dotenv -e ../../.env.local -e .env.local -- tsx src/jobs/galxeSync.ts",
+    "job:snapshot-freeze":  "dotenv -e ../../.env.local -e .env.local -- tsx src/jobs/snapshotFreeze.ts"
+  },
+  "dependencies": {
+    "@aeternum/blockchain": "workspace:*",
+    "@aeternum/config":     "workspace:*",
+    "@aeternum/db":         "workspace:*",
+    "@hono/node-server":    "^1.13.7",
+    "drizzle-orm":          "^0.30.0",
+    "hono":                 "^4.12.23",
+    "postgres":             "^3.4.0",
+    "viem":                 "^2.51.3",
+    "zod":                  "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node":         "^25.9.1",
+    "dotenv-cli":          "^11.0.0",
+    "drizzle-kit":         "^0.21.0",
+    "tsx":                 "^4.0.0",
+    "typescript":          "^6.0.3",
+    "vite":                "^8.0.0",
+    "vitest":              "^4.1.9",
+    "@vitest/coverage-v8":  "^4.1.9"
+  }
+}
