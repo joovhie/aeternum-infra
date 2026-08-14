@@ -32,7 +32,9 @@ export const ONE_ETH = 1_000_000_000_000_000_000n;
 // --- Base template ---
 
 const BASE: Vault = {
-  id:                    WALLET_A,
+  id:                    `11155111-${WALLET_A}`,
+  chainId:               11155111,
+  wallet:                WALLET_A,
   backupAddress:         BACKUP_A,
   inactivityPeriod:      ONE_YEAR,
   lastActivityTimestamp: NOW - ONE_YEAR - ONE_DAY, // 1 year + 1 day ago
