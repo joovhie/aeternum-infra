@@ -34,15 +34,17 @@ import { createMockPublicClient, createMockWalletClient, createMockDb, makeAddre
 import { ONE_ETH } from "../fixtures/vaults.js";
 import { failedLog, eventLogsByName } from "../fixtures/event-logs.js";
 import { createReceipt, TX_HASH_1, TX_HASH_2 } from "../fixtures/receipts.js";
-import { CONTRACT_ADDRESS } from "../fixtures/env.js";
+import { CONTRACT_ADDRESS, mockSharedEnv } from "../fixtures/env.js";
 
 const mockGetDueVaults = vi.mocked(getDueVaults);
 const mockParseEventLogs = vi.mocked(parseEventLogs);
 
-/** Builds a minimal Vault row for a given address — only `id` is read by scan(). */
-function vaultRow(id: `0x${string}`): Vault {
+/** Builds a minimal Vault row for a given address — scan() reads `.wallet`, not `.id`. */
+function vaultRow(wallet: `0x${string}`): Vault {
   return {
-    id,
+    id: `${mockSharedEnv.CHAIN_ID}-${wallet}`,
+    chainId: mockSharedEnv.CHAIN_ID,
+    wallet,
     backupAddress: "0x0000000000000000000000000000000000000b" as `0x${string}`,
     inactivityPeriod: 31_536_000n,
     lastActivityTimestamp: 0n,
@@ -72,7 +74,7 @@ describe("integration: batch execution at scale with failure isolation", () => {
   });
 
   it("scan confirms all 125 wallets as due", async () => {
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
     expect(dueWallets).toHaveLength(125);
   });
@@ -82,7 +84,7 @@ describe("integration: batch execution at scale with failure isolation", () => {
     publicClient.waitForTransactionReceipt.mockResolvedValue(createReceipt());
     mockParseEventLogs.mockReturnValue([]);
 
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     expect(walletClient.writeContract).toHaveBeenCalledTimes(2);
@@ -95,7 +97,7 @@ describe("integration: batch execution at scale with failure isolation", () => {
     publicClient.waitForTransactionReceipt.mockResolvedValue(createReceipt());
     mockParseEventLogs.mockReturnValue([]);
 
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     for (const call of walletClient.writeContract.mock.calls) {
@@ -137,7 +139,7 @@ describe("integration: batch execution at scale with failure isolation", () => {
       return [];
     });
 
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     // First batch summary: 119 recovered, 1 failed
@@ -168,7 +170,7 @@ describe("integration: batch execution at scale with failure isolation", () => {
     publicClient.waitForTransactionReceipt.mockResolvedValue(createReceipt({ transactionHash: TX_HASH_2 }));
     mockParseEventLogs.mockReturnValue([]);
 
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     expect(walletClient.writeContract).toHaveBeenCalledTimes(2);
@@ -185,7 +187,7 @@ describe("integration: batch execution at scale with failure isolation", () => {
     publicClient.waitForTransactionReceipt.mockResolvedValue(createReceipt());
     mockParseEventLogs.mockReturnValue([]);
 
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     expect(logger.info).toHaveBeenCalledWith(

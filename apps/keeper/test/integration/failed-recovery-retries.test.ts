@@ -34,7 +34,7 @@ import { createMockPublicClient, createMockWalletClient, createMockDb } from "..
 import { dueVault, WALLET_B, BACKUP_B, ONE_ETH } from "../fixtures/vaults.js";
 import { failedLog, eventLogsByName } from "../fixtures/event-logs.js";
 import { createReceipt, TX_HASH_1 } from "../fixtures/receipts.js";
-import { CONTRACT_ADDRESS } from "../fixtures/env.js";
+import { CONTRACT_ADDRESS, mockSharedEnv } from "../fixtures/env.js";
 
 const mockGetDueVaults = vi.mocked(getDueVaults);
 const mockParseEventLogs = vi.mocked(parseEventLogs);
@@ -65,13 +65,13 @@ describe("integration: failed recovery is logged and remains retriable", () => {
   });
 
   it("the vault is still confirmed due and submitted for recovery", async () => {
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
     expect(dueWallets).toEqual([WALLET_B]);
   });
 
   it("logs RecoveryFailed via logger.warn with wallet, backup address, and amount", async () => {
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     expect(logger.warn).toHaveBeenCalledWith(
@@ -81,7 +81,7 @@ describe("integration: failed recovery is logged and remains retriable", () => {
   });
 
   it("does not log RecoveryExecuted or RecoveryAbandoned for the same wallet", async () => {
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     expect(logger.info).not.toHaveBeenCalledWith("Recovery executed", expect.anything());
@@ -92,7 +92,7 @@ describe("integration: failed recovery is logged and remains retriable", () => {
   });
 
   it("batch summary reflects failed: 1, recovered: 0, abandoned: 0", async () => {
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     expect(logger.info).toHaveBeenCalledWith(
@@ -103,7 +103,7 @@ describe("integration: failed recovery is logged and remains retriable", () => {
 
   it("the wallet surfaces again on a subsequent cycle (DB still reports it as due)", async () => {
     // Cycle 1
-    const cycle1 = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const cycle1 = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, cycle1);
 
     // Contract state was restored on failure — getDueVaults would still
@@ -111,7 +111,7 @@ describe("integration: failed recovery is logged and remains retriable", () => {
     // false. We simulate that unchanged DB state for cycle 2.
     mockGetDueVaults.mockResolvedValue([vaultWithBadBackup]);
 
-    const cycle2 = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const cycle2 = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, cycle2); // ← this line was missing
 
     expect(cycle2).toEqual([WALLET_B]);

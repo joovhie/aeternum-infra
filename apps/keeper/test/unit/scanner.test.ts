@@ -22,7 +22,7 @@ import { scan } from "../../src/scanner.js";
 import { logger } from "../../src/logger.js";
 import { createMockPublicClient, createMockDb } from "../helpers/mocks.js";
 import { dueVault, activeVault, WALLET_A, WALLET_B, WALLET_C } from "../fixtures/vaults.js";
-import { CONTRACT_ADDRESS } from "../fixtures/env.js";
+import { CONTRACT_ADDRESS, mockSharedEnv } from "../fixtures/env.js";
 
 const mockGetDueVaults = vi.mocked(getDueVaults);
 
@@ -41,7 +41,7 @@ describe("scanner.scan", () => {
     it("returns [] without calling multicall when DB returns no candidates", async () => {
       mockGetDueVaults.mockResolvedValue([]);
 
-      const result = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      const result = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(result).toEqual([]);
       expect(publicClient.multicall).not.toHaveBeenCalled();
@@ -50,15 +50,15 @@ describe("scanner.scan", () => {
     it("passes dbScanLimit through to getDueVaults", async () => {
       mockGetDueVaults.mockResolvedValue([]);
 
-      await scan(db, publicClient, CONTRACT_ADDRESS, 250);
+      await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 250);
 
-      expect(mockGetDueVaults).toHaveBeenCalledWith(db, 250);
+      expect(mockGetDueVaults).toHaveBeenCalledWith(db, mockSharedEnv.CHAIN_ID, 250);
     });
 
     it("returns [] and logs an error when the DB query throws", async () => {
       mockGetDueVaults.mockRejectedValue(new Error("connection refused"));
 
-      const result = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      const result = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(result).toEqual([]);
       expect(logger.error).toHaveBeenCalledWith(
@@ -71,7 +71,7 @@ describe("scanner.scan", () => {
     it("stringifies a non-Error value thrown by the DB query", async () => {
       mockGetDueVaults.mockRejectedValue("connection string malformed");
 
-      const result = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      const result = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(result).toEqual([]);
       expect(logger.error).toHaveBeenCalledWith(
@@ -84,7 +84,7 @@ describe("scanner.scan", () => {
       mockGetDueVaults.mockResolvedValue([dueVault]);
       publicClient.multicall.mockResolvedValue([{ status: "success", result: true }]);
 
-      await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(logger.info).toHaveBeenCalledWith(
         "Scanner: DB candidates found",
@@ -96,7 +96,7 @@ describe("scanner.scan", () => {
       mockGetDueVaults.mockResolvedValue([dueVault]); // id: WALLET_A
       publicClient.multicall.mockResolvedValue([{ status: "success", result: true }]);
 
-      await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       const callArgs = publicClient.multicall.mock.calls[0][0];
       expect(callArgs.contracts[0].args).toEqual([WALLET_A]);
@@ -113,7 +113,7 @@ describe("scanner.scan", () => {
         { status: "success", result: false },
       ]);
 
-      await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(publicClient.multicall).toHaveBeenCalledOnce();
       const callArgs = publicClient.multicall.mock.calls[0][0];
@@ -128,7 +128,7 @@ describe("scanner.scan", () => {
         { status: "success", result: true },
       ]);
 
-      await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       const callArgs = publicClient.multicall.mock.calls[0][0];
       for (const contract of callArgs.contracts) {
@@ -144,7 +144,7 @@ describe("scanner.scan", () => {
         { status: "success", result: false }, // WALLET_B stale — no longer due
       ]);
 
-      const result = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      const result = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(result).toEqual([WALLET_A]);
     });
@@ -155,7 +155,7 @@ describe("scanner.scan", () => {
         { status: "failure" },
       ]);
 
-      const result = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      const result = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(result).toEqual([]);
     });
@@ -167,7 +167,7 @@ describe("scanner.scan", () => {
         { status: "success", result: false },
       ]);
 
-      await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(logger.info).toHaveBeenCalledWith(
         "Scanner: stale DB entries filtered out",
@@ -179,7 +179,7 @@ describe("scanner.scan", () => {
       mockGetDueVaults.mockResolvedValue([dueVault]);
       publicClient.multicall.mockResolvedValue([{ status: "success", result: true }]);
 
-      await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(logger.info).not.toHaveBeenCalledWith(
         "Scanner: stale DB entries filtered out",
@@ -191,7 +191,7 @@ describe("scanner.scan", () => {
       mockGetDueVaults.mockResolvedValue([dueVault]);
       publicClient.multicall.mockResolvedValue([{ status: "success", result: true }]);
 
-      await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(logger.info).toHaveBeenCalledWith(
         "Scanner: onchain-confirmed due vaults",
@@ -203,7 +203,7 @@ describe("scanner.scan", () => {
       mockGetDueVaults.mockResolvedValue([dueVault]);
       publicClient.multicall.mockRejectedValue(new Error("RPC timeout"));
 
-      const result = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      const result = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(result).toEqual([]);
       expect(logger.error).toHaveBeenCalledWith(
@@ -216,7 +216,7 @@ describe("scanner.scan", () => {
       mockGetDueVaults.mockResolvedValue([dueVault]);
       publicClient.multicall.mockRejectedValue("RPC node returned malformed response");
 
-      const result = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      const result = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(result).toEqual([]);
       expect(logger.error).toHaveBeenCalledWith(
@@ -232,7 +232,7 @@ describe("scanner.scan", () => {
         { status: "success", result: true },
       ]);
 
-      const result = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      const result = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(result).toEqual([WALLET_A, WALLET_B]);
     });
@@ -244,7 +244,7 @@ describe("scanner.scan", () => {
         { status: "success", result: false },
       ]);
 
-      const result = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      const result = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(result).toEqual([]);
     });
@@ -259,7 +259,7 @@ describe("scanner.scan", () => {
         { status: "success", result: true },
       ]);
 
-      const result = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+      const result = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
       expect(result).toEqual([WALLET_A, WALLET_C]);
     });

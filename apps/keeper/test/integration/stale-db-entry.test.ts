@@ -29,7 +29,7 @@ import { execute } from "../../src/executor.js";
 import { logger } from "../../src/logger.js";
 import { createMockPublicClient, createMockWalletClient, createMockDb } from "../helpers/mocks.js";
 import { dueVault, activeVault, mixedVaults, WALLET_A, WALLET_B } from "../fixtures/vaults.js";
-import { CONTRACT_ADDRESS } from "../fixtures/env.js";
+import { CONTRACT_ADDRESS, mockSharedEnv } from "../fixtures/env.js";
 
 const mockGetDueVaults = vi.mocked(getDueVaults);
 
@@ -48,7 +48,7 @@ describe("integration: stale DB entry is filtered before execution", () => {
     mockGetDueVaults.mockResolvedValue([dueVault]); // DB thinks WALLET_A is due
     publicClient.multicall.mockResolvedValue([{ status: "success", result: false }]); // user pinged since
 
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
     expect(dueWallets).toEqual([]);
   });
@@ -57,7 +57,7 @@ describe("integration: stale DB entry is filtered before execution", () => {
     mockGetDueVaults.mockResolvedValue([dueVault]);
     publicClient.multicall.mockResolvedValue([{ status: "success", result: false }]);
 
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     if (dueWallets.length > 0) {
       await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
     }
@@ -69,7 +69,7 @@ describe("integration: stale DB entry is filtered before execution", () => {
     mockGetDueVaults.mockResolvedValue([dueVault]);
     publicClient.multicall.mockResolvedValue([{ status: "success", result: false }]);
 
-    await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
     expect(logger.info).toHaveBeenCalledWith(
       "Scanner: stale DB entries filtered out",
@@ -90,7 +90,7 @@ describe("integration: stale DB entry is filtered before execution", () => {
       blockNumber: 1n, gasUsed: 91_000n, logs: [], transactionHash: "0xtxhash", status: "success",
     });
 
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     expect(dueWallets).toEqual([WALLET_A]);
 
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
@@ -104,7 +104,7 @@ describe("integration: stale DB entry is filtered before execution", () => {
     mockGetDueVaults.mockResolvedValue([dueVault, activeVault]);
     publicClient.multicall.mockRejectedValue(new Error("RPC node unavailable"));
 
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
     expect(dueWallets).toEqual([]);
     expect(walletClient.writeContract).not.toHaveBeenCalled();
