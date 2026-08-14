@@ -29,7 +29,7 @@ function vaultId(chainId: number, wallet: string): string {
 
 // --- 1. REGISTRATION ---
 ponder.on("AeternumVault:RecoveryRegistered", async ({ event, context }) => {
-  const chainId = context.chain.id;
+  const chainId = context.chain.id as number;
   const wallet = event.args.wallet.toLowerCase();
 
   // Use onConflictDoUpdate to handle re-registrations (Upsert)
@@ -68,7 +68,7 @@ ponder.on("AeternumVault:RecoveryRegistered", async ({ event, context }) => {
 
 // --- 2. ACTIVITY & CONFIG UPDATES ---
 ponder.on("AeternumVault:ActivityPinged", async ({ event, context }) => {
-  const chainId = context.chain.id;
+  const chainId = context.chain.id as number;
   const wallet = event.args.wallet.toLowerCase();
 
   await context.db.update(schema.vaults, { id: vaultId(chainId, wallet) }).set({
@@ -88,7 +88,7 @@ ponder.on("AeternumVault:ActivityPinged", async ({ event, context }) => {
 });
 
 ponder.on("AeternumVault:BackupAddressUpdated", async ({ event, context }) => {
-  const chainId = context.chain.id;
+  const chainId = context.chain.id as number;
   const wallet = event.args.wallet.toLowerCase();
 
   await context.db.update(schema.vaults, { id: vaultId(chainId, wallet) }).set({
@@ -109,7 +109,7 @@ ponder.on("AeternumVault:BackupAddressUpdated", async ({ event, context }) => {
 });
 
 ponder.on("AeternumVault:InactivityPeriodUpdated", async ({ event, context }) => {
-  const chainId = context.chain.id;
+  const chainId = context.chain.id as number;
   const wallet = event.args.wallet.toLowerCase();
 
   await context.db.update(schema.vaults, { id: vaultId(chainId, wallet) }).set({
@@ -131,7 +131,7 @@ ponder.on("AeternumVault:InactivityPeriodUpdated", async ({ event, context }) =>
 
 // --- 3. FINANCIAL TRANSACTIONS ---
 ponder.on("AeternumVault:Deposited", async ({ event, context }) => {
-  const chainId = context.chain.id;
+  const chainId = context.chain.id as number;
   const wallet = event.args.wallet.toLowerCase();
 
   await context.db.update(schema.vaults, { id: vaultId(chainId, wallet) }).set({
@@ -163,7 +163,7 @@ ponder.on("AeternumVault:Deposited", async ({ event, context }) => {
 });
 
 ponder.on("AeternumVault:Sent", async ({ event, context }) => {
-  const chainId = context.chain.id;
+  const chainId = context.chain.id as number;
   const wallet = event.args.wallet.toLowerCase();
 
   await context.db.update(schema.vaults, { id: vaultId(chainId, wallet) }).set({
@@ -196,7 +196,7 @@ ponder.on("AeternumVault:Sent", async ({ event, context }) => {
 });
 
 ponder.on("AeternumVault:Withdrawn", async ({ event, context }) => {
-  const chainId = context.chain.id;
+  const chainId = context.chain.id as number;
   const wallet = event.args.wallet.toLowerCase();
 
   await context.db.update(schema.vaults, { id: vaultId(chainId, wallet) }).set({
@@ -229,7 +229,7 @@ ponder.on("AeternumVault:Withdrawn", async ({ event, context }) => {
 
 // --- 4. RECOVERY LIFECYCLE ---
 ponder.on("AeternumVault:RecoveryExecuted", async ({ event, context }) => {
-  const chainId = context.chain.id;
+  const chainId = context.chain.id as number;
   const wallet = event.args.wallet.toLowerCase();
 
   await context.db.update(schema.vaults, { id: vaultId(chainId, wallet) }).set({
@@ -263,7 +263,7 @@ ponder.on("AeternumVault:RecoveryExecuted", async ({ event, context }) => {
 });
 
 ponder.on("AeternumVault:RecoveryFailed", async ({ event, context }) => {
-  const chainId = context.chain.id;
+  const chainId = context.chain.id as number;
   const wallet = event.args.wallet.toLowerCase();
 
   // Moved from recoveryEvents to unified ledger
@@ -280,7 +280,7 @@ ponder.on("AeternumVault:RecoveryFailed", async ({ event, context }) => {
 });
 
 ponder.on("AeternumVault:RecoveryAbandoned", async ({ event, context }) => {
-  const chainId = context.chain.id;
+  const chainId = context.chain.id as number;
   const wallet = event.args.wallet.toLowerCase();
 
   await context.db.update(schema.vaults, { id: vaultId(chainId, wallet) }).set({
@@ -301,7 +301,7 @@ ponder.on("AeternumVault:RecoveryAbandoned", async ({ event, context }) => {
 });
 
 ponder.on("AeternumVault:RecoveryCancelled", async ({ event, context }) => {
-  const chainId = context.chain.id;
+  const chainId = context.chain.id as number;
   const wallet = event.args.wallet.toLowerCase();
 
   // Update vault state to reflect cancellation
