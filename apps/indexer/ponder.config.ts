@@ -77,9 +77,11 @@ if (mainnetConfigured) {
   } as ContractConfig;
 }
 
-export default createConfig({
+const config: { chains: Record<string, ChainConfig>; contracts: { AeternumVault: ContractConfig } } = createConfig({
   chains,
   contracts: {
     AeternumVault: vaultContract,
   },
 });
+
+export default config;
