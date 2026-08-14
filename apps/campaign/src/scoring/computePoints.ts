@@ -8,6 +8,11 @@
  * running this twice over the same window awards nothing twice.
  *
  * Called by src/jobs/nightlyScoring.ts. Not a long-running process itself.
+ *
+ * MULTI-CHAIN UPDATE: both scoring passes now take an explicit chainId and
+ * thread it through every indexer read and anti-gaming check — see
+ * indexerReads/queries.ts. Call sites (jobs/nightlyScoring.ts) pass
+ * CHAIN_IDS.SEPOLIA / CHAIN_IDS.MAINNET from @aeternum/config.
  */
 
 import { MAX_RECOVERY_ATTEMPTS } from "@aeternum/config";
@@ -38,11 +43,12 @@ import { logger } from "../logger.js";
 export async function runSepoliaScoring(
   indexerDb: DbClient,
   campaignDb: CampaignDbClient,
+  chainId: number,
   sinceUnixSeconds: bigint,
 ): Promise<{ awarded: number }> {
   const entries: NewLedgerEntry[] = [];
 
-  const registered = await getTransactionsByType(indexerDb, "REGISTERED", sinceUnixSeconds);
+  const registered = await getTransactionsByType(indexerDb, chainId, "REGISTERED", sinceUnixSeconds);
   for (const tx of registered) {
     entries.push({
       wallet: tx.wallet,
@@ -54,7 +60,7 @@ export async function runSepoliaScoring(
     });
   }
 
-  const recovered = await getTransactionsByType(indexerDb, "RECOVERY_EXECUTED", sinceUnixSeconds);
+  const recovered = await getTransactionsByType(indexerDb, chainId, "RECOVERY_EXECUTED", sinceUnixSeconds);
   for (const tx of recovered) {
     entries.push({
       wallet: tx.wallet,
@@ -66,7 +72,7 @@ export async function runSepoliaScoring(
     });
   }
 
-  const cancelled = await getTransactionsByType(indexerDb, "RECOVERY_CANCELLED", sinceUnixSeconds);
+  const cancelled = await getTransactionsByType(indexerDb, chainId, "RECOVERY_CANCELLED", sinceUnixSeconds);
   for (const tx of cancelled) {
     if (tx.amount !== null && tx.amount !== 0n) continue; // only the zero-balance edge case counts here
     entries.push({
@@ -82,7 +88,7 @@ export async function runSepoliaScoring(
   // Three-attempt failure cycle: award once, on the Nth failure per wallet,
   // where N = MAX_RECOVERY_ATTEMPTS (mirrors the contract's own retry cap
   // rather than hardcoding 3 here).
-  const failed = await getTransactionsByType(indexerDb, "RECOVERY_FAILED", sinceUnixSeconds);
+  const failed = await getTransactionsByType(indexerDb, chainId, "RECOVERY_FAILED", sinceUnixSeconds);
   const failuresByWallet = new Map<string, number>();
   for (const tx of failed) {
     const key = tx.wallet.toLowerCase();
@@ -117,25 +123,21 @@ export async function runSepoliaScoring(
  * wallet's first qualifying DEPOSIT since sinceUnixSeconds, gated by the
  * dust threshold (deposits at or below it earn nothing) and the min-hold
  * check (a deposit withdrawn again quickly earns nothing).
- *
- * NOTE: see indexerReads/queries.ts's multi-chain caveat — this reads the
- * same vault_transactions table Sepolia scoring does. Until apps/indexer
- * distinguishes chains, this function should not be run against a database
- * that's also indexing Sepolia, or Sepolia deposits get mainnet weight.
  */
 export async function runMainnetRegistrationScoring(
   indexerDb: DbClient,
   campaignDb: CampaignDbClient,
+  chainId: number,
   sinceUnixSeconds: bigint,
 ): Promise<{ awarded: number }> {
-  const deposits = await getTransactionsByType(indexerDb, "DEPOSIT", sinceUnixSeconds);
+  const deposits = await getTransactionsByType(indexerDb, chainId, "DEPOSIT", sinceUnixSeconds);
   const entries: NewLedgerEntry[] = [];
 
   for (const tx of deposits) {
     const amount = tx.amount ?? 0n;
     if (amount < campaignEnv.CAMPAIGN_DEPOSIT_DUST_THRESHOLD_WEI) continue;
 
-    if (!(await clearedMinHold(indexerDb, tx.wallet, tx.timestamp))) continue;
+    if (!(await clearedMinHold(indexerDb, chainId, tx.wallet, tx.timestamp))) continue;
     if (!(await underDailyRateLimit(campaignDb, tx.wallet))) continue;
     if (!(await passesFundingSourceCheck(tx.wallet))) continue;
 
