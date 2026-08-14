@@ -8,14 +8,20 @@
  *      Shared env (CHAIN_ID, RPC_URL, CONTRACT_ADDRESS, DATABASE_URL) is
  *      already validated by @aeternum/config on import.
  *   2. Instantiate viem clients and the database client.
- *   3. Start a minimal HTTP health server (used by Railway's health check).
+ *   3. Start a minimal HTTP health server (used by Render's health check).
  *   4. Enter the polling loop: scan → execute → sleep → repeat.
  *
  * GRACEFUL SHUTDOWN:
- *   SIGTERM — finish the current cycle, then exit cleanly. Railway sends
+ *   SIGTERM — finish the current cycle, then exit cleanly. Render sends
  *   SIGTERM before force-killing a service; this gives the bot time to
  *   complete any in-progress transaction before stopping.
  *   SIGINT  — exit immediately (local Ctrl-C).
+ *
+ * MULTI-CHAIN NOTE: this keeper deployment operates on exactly one chain,
+ * the one env.CHAIN_ID points at — see scanner.ts's multi-chain update.
+ * Once mainnet is live, mainnet recovery execution is a second keeper
+ * deployment with its own env (its own CHAIN_ID, RPC_URL, CONTRACT_ADDRESS,
+ * KEEPER_PRIVATE_KEY, and funded gas wallet), not a code change here.
  */
 
 import http from "node:http";
@@ -79,9 +85,9 @@ const walletClient = createViemWalletClient(
 const db = createDbClient(env.DATABASE_URL);
 
 // --- Health server ---
-// Railway uses this endpoint to confirm the service is running.
+// Render uses this endpoint to confirm the service is running.
 // Uses Node's built-in http module — no extra dependency.
-// PORT is set automatically by Railway for web-exposed services;
+// PORT is set automatically by Render for web-exposed services;
 // falls back to 3001 for local development.
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -106,6 +112,7 @@ async function runCycle(): Promise<void> {
 
   const dueWallets = await scan(
     db,
+    env.CHAIN_ID,
     publicClient,
     contractAddress,
     keeperEnv.KEEPER_BATCH_SIZE,
@@ -152,7 +159,7 @@ logger.info("Keeper: starting", {
       await runCycle();
     } catch (err) {
       // Surface unhandled errors without crashing the loop.
-      // Railway's restart policy handles persistent failures.
+      // Render's restart policy handles persistent failures.
       logger.error("Keeper: unhandled cycle error", {
         error: err instanceof Error ? err.message : String(err),
         stack: err instanceof Error ? err.stack : undefined,
