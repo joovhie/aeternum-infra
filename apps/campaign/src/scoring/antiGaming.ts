@@ -49,10 +49,17 @@ export async function underDailyRateLimit(
  */
 export async function clearedMinHold(
   indexerDb: DbClient,
+  chainId: number,
   wallet: string,
   depositTimestamp: bigint,
 ): Promise<boolean> {
-  const early = await hadEarlyWithdrawal(indexerDb, wallet, depositTimestamp, campaignEnv.CAMPAIGN_MIN_HOLD_SECONDS);
+  const early = await hadEarlyWithdrawal(
+    indexerDb,
+    chainId,
+    wallet,
+    depositTimestamp,
+    campaignEnv.CAMPAIGN_MIN_HOLD_SECONDS,
+  );
   return !early;
 }
 
