@@ -12,6 +12,13 @@
  *
  * 2. Query helpers — typed functions over those tables for use by the keeper
  *    and any future services that read from the indexed database.
+ *
+ * MULTI-CHAIN UPDATE: vaults.id is now `${chainId}-${wallet}`, not the bare
+ * wallet address — see apps/indexer/ponder.schema.ts. getDueVaults,
+ * getVaultByAddress, and getActiveVaultCount all now take a required
+ * chainId parameter and filter on it. This is a breaking signature change
+ * for every caller — apps/keeper/src/scanner.ts has been updated
+ * accordingly; check for any other callers before deploying.
  */
 
 import {
@@ -24,12 +31,14 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import type { DbClient } from "./client.js";
 
-// ─── Table mirrors ────────────────────────────────────────────────────────────
+// --- Table mirrors ---
 // These mirror apps/indexer/ponder.schema.ts exactly.
 // Ponder table name → PostgreSQL table name: camelCase → snake_case.
 
 export const vaults = pgTable("vaults", {
-  id:                   text("id").primaryKey(),                          // wallet address
+  id:                   text("id").primaryKey(),                          // `${chainId}-${wallet}`
+  chainId:              integer("chain_id").notNull(),
+  wallet:               text("wallet").notNull(),                          // bare wallet address — query this, not id
   backupAddress:        text("backup_address").notNull(),
   inactivityPeriod:     bigint("inactivity_period", { mode: "bigint" }).notNull(),
   lastActivityTimestamp:bigint("last_activity_timestamp", { mode: "bigint" }).notNull(),
@@ -41,6 +50,7 @@ export const vaults = pgTable("vaults", {
 
 export const vaultTransactions = pgTable("vault_transactions", {
   id:              text("id").primaryKey(),                               // txHash-logIndex
+  chainId:         integer("chain_id").notNull(),
   wallet:          text("wallet").notNull(),
   type:            text("type").notNull(),
   amount:          bigint("amount", { mode: "bigint" }),
@@ -52,7 +62,8 @@ export const vaultTransactions = pgTable("vault_transactions", {
 
 export const balanceEvents = pgTable("balance_events", {
   id:             text("id").primaryKey(),
-  vaultId:        text("vault_id").notNull(),
+  chainId:        integer("chain_id").notNull(),
+  vaultId:        text("vault_id").notNull(),                             // bare wallet address, unchanged
   eventName:      text("event_name").notNull(),
   blockNumber:    bigint("block_number", { mode: "bigint" }).notNull(),
   logIndex:       integer("log_index").notNull(),
@@ -60,17 +71,17 @@ export const balanceEvents = pgTable("balance_events", {
   amount:         bigint("amount", { mode: "bigint" }),
 });
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// --- Types ---
 
 export type Vault = typeof vaults.$inferSelect;
 export type VaultTransaction = typeof vaultTransactions.$inferSelect;
 export type BalanceEvent = typeof balanceEvents.$inferSelect;
 
-// ─── Query helpers ────────────────────────────────────────────────────────────
+// --- Query helpers ---
 
 /**
- * Returns all vaults whose inactivity deadline has passed and that have not
- * yet been recovered, abandoned, or cancelled.
+ * Returns all vaults on the given chain whose inactivity deadline has
+ * passed and that have not yet been recovered, abandoned, or cancelled.
  *
  * Deadline condition: lastActivityTimestamp + inactivityPeriod <= now (unix seconds)
  *
@@ -79,12 +90,18 @@ export type BalanceEvent = typeof balanceEvents.$inferSelect;
  * The contract re-validates all conditions independently — this query is an
  * efficiency layer, not a security boundary.
  *
- * @param db    Drizzle client from createDbClient()
- * @param limit Max rows to return per call. Defaults to 500.
- * @param offset Pagination offset for iterating over large result sets.
+ * @param db      Drizzle client from createDbClient()
+ * @param chainId Numeric EVM chain ID to scan — a keeper deployment only
+ *                ever acts on its own chain, so this must be passed
+ *                explicitly rather than defaulted, to avoid a
+ *                misconfigured deployment silently scanning the wrong
+ *                chain's vaults.
+ * @param limit   Max rows to return per call. Defaults to 500.
+ * @param offset  Pagination offset for iterating over large result sets.
  */
 export async function getDueVaults(
   db: DbClient,
+  chainId: number,
   limit = 500,
   offset = 0,
 ): Promise<Vault[]> {
@@ -95,6 +112,7 @@ export async function getDueVaults(
     .from(vaults)
     .where(
       and(
+        eq(vaults.chainId, chainId),
         // Deadline elapsed: lastActivityTimestamp + inactivityPeriod <= now
         sql`(${vaults.lastActivityTimestamp} + ${vaults.inactivityPeriod}) <= ${nowSeconds}`,
         eq(vaults.isRecovered, false),
@@ -107,20 +125,22 @@ export async function getDueVaults(
 }
 
 /**
- * Returns a single vault record by wallet address.
- * Returns undefined if the wallet is not registered.
+ * Returns a single vault record by chain + wallet address.
+ * Returns undefined if the wallet is not registered on that chain.
  *
- * @param db     Drizzle client from createDbClient()
- * @param wallet Wallet address (0x-prefixed, any case — compared case-insensitively)
+ * @param db      Drizzle client from createDbClient()
+ * @param chainId Numeric EVM chain ID.
+ * @param wallet  Wallet address (0x-prefixed, any case — compared case-insensitively)
  */
 export async function getVaultByAddress(
   db: DbClient,
+  chainId: number,
   wallet: string,
 ): Promise<Vault | undefined> {
   const result = await db
     .select()
     .from(vaults)
-    .where(sql`lower(${vaults.id}) = lower(${wallet})`)
+    .where(and(eq(vaults.chainId, chainId), sql`lower(${vaults.wallet}) = lower(${wallet})`))
     .limit(1);
 
   return result[0];
@@ -128,16 +148,19 @@ export async function getVaultByAddress(
 
 /**
  * Returns the total number of active (non-recovered, non-abandoned,
- * non-cancelled) vaults. Used for monitoring and logging in the keeper.
+ * non-cancelled) vaults on the given chain. Used for monitoring and
+ * logging in the keeper.
  *
- * @param db Drizzle client from createDbClient()
+ * @param db      Drizzle client from createDbClient()
+ * @param chainId Numeric EVM chain ID.
  */
-export async function getActiveVaultCount(db: DbClient): Promise<number> {
+export async function getActiveVaultCount(db: DbClient, chainId: number): Promise<number> {
   const result = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(vaults)
     .where(
       and(
+        eq(vaults.chainId, chainId),
         eq(vaults.isRecovered, false),
         eq(vaults.isAbandoned, false),
         eq(vaults.isCancelled, false),
