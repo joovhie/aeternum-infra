@@ -76,7 +76,11 @@ const campaignEnvSchema = z.object({
   // jobs (mainnet registration scoring, the liveness checkpoint) skip
   // themselves explicitly rather than running against a chain with no
   // indexed data and silently awarding nothing every time.
-  MAINNET_INDEXING_LIVE: z.coerce.boolean().default(false),
+  MAINNET_INDEXING_LIVE: z
+  .string()
+  .optional()
+  .default("false")
+  .transform((val) => val === "true"),
 });
 
 const campaignParsed = campaignEnvSchema.safeParse(process.env);
