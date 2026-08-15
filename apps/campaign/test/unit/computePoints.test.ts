@@ -8,6 +8,15 @@ import type { VaultTransaction } from "@aeternum/db";
 // campaignEnv.CAMPAIGN_MAINNET_WEIGHT_MULTIPLIER — so unlike the dust
 // threshold (read per-call), this value is effectively fixed for the
 // whole file once weights.js first evaluates. 3 here, tests assume 3.
+// computePoints.ts imports MAX_RECOVERY_ATTEMPTS as a real value (not a
+// type) from @aeternum/config — that package validates process.env for
+// real at import time and calls process.exit(1) on failure, which is
+// exactly what happens here without this mock, since the test runner's
+// environment has none of CHAIN_ID/RPC_URL/CONTRACT_ADDRESS/etc. set.
+// Same pattern apps/keeper uses (see its fixtures/env.ts comment on
+// mockSharedEnv) — mock the whole module rather than populate real env.
+vi.mock("@aeternum/config", () => ({ MAX_RECOVERY_ATTEMPTS: 3 }));
+
 const mockEnv = vi.hoisted(() => ({
   CAMPAIGN_MAINNET_WEIGHT_MULTIPLIER: 3,
   CAMPAIGN_DEPOSIT_DUST_THRESHOLD_WEI: 1_000_000n,
