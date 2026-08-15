@@ -82,7 +82,7 @@ describe("POST /bug-reports", () => {
 
   it("GET /security-note points to the security email, not this route, for real vulnerabilities", async () => {
     const res = await app.request("/security-note");
-    const body = await res.json();
+    const body = (await res.json()) as { note: string };
 
     expect(res.status).toBe(200);
     expect(body.note).toContain("security@aeternumvault.xyz");

@@ -37,7 +37,7 @@ describe("GET /leaderboard", () => {
 
   it("returns the rows under a leaderboard key", async () => {
     const res = await app.request("/");
-    const body = await res.json();
+    const body = (await res.json()) as { leaderboard: Array<{ wallet: string; total: number }> };
     expect(body).toEqual({ leaderboard: [{ wallet: "0x1", total: 100 }] });
   });
 });

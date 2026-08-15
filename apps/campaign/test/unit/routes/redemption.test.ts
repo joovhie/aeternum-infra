@@ -40,7 +40,7 @@ describe("GET /redemption/:wallet", () => {
   it("returns null when there's no redemption on file", async () => {
     mockGetRedemptionByWallet.mockResolvedValue(undefined);
     const res = await app.request(`/${WALLET}`);
-    const body = await res.json();
+    const body = (await res.json()) as { redemption: null };
     expect(body).toEqual({ redemption: null });
   });
 
@@ -50,7 +50,7 @@ describe("GET /redemption/:wallet", () => {
       status: "pending", requestedAt: new Date(), approvedAt: null, paidAt: null, txHash: null,
     });
     const res = await app.request(`/${WALLET}`);
-    const body = await res.json();
+    const body = (await res.json()) as { redemption: { id: string } };
     expect(body.redemption.id).toBe("r1");
   });
 });
@@ -66,7 +66,7 @@ describe("POST /redemption/:wallet/claim", () => {
   it("returns 400 with the executor's reason when the claim is rejected", async () => {
     mockRequestRedemption.mockResolvedValue({ ok: false, reason: "no frozen snapshot found for this wallet" });
     const res = await app.request(`/${WALLET}/claim`, { method: "POST" });
-    const body = await res.json();
+    const body = (await res.json()) as { error: string };
 
     expect(res.status).toBe(400);
     expect(body.error).toMatch(/snapshot/i);
@@ -75,7 +75,7 @@ describe("POST /redemption/:wallet/claim", () => {
   it("returns 200 with the executor's result on success", async () => {
     mockRequestRedemption.mockResolvedValue({ ok: true, status: "requested", ethAmountWei: "50000" });
     const res = await app.request(`/${WALLET}/claim`, { method: "POST" });
-    const body = await res.json();
+    const body = (await res.json()) as { ethAmountWei: string };
 
     expect(res.status).toBe(200);
     expect(body.ethAmountWei).toBe("50000");
@@ -118,7 +118,7 @@ describe("POST /redemption/:wallet/approve", () => {
       method: "POST",
       headers: { "x-admin-key": "test-admin-secret" },
     });
-    const body = await res.json();
+    const body = (await res.json()) as { approved: boolean };
 
     expect(res.status).toBe(200);
     expect(body).toEqual({ approved: true });
@@ -139,7 +139,7 @@ describe("POST /redemption/:wallet/approve", () => {
       method: "POST",
       headers: { "x-admin-key": "test-admin-secret" },
     });
-    const body = await res.json();
+    const body = (await res.json()) as { error: string };
 
     expect(res.status).toBe(400);
     expect(body.error).toMatch(/no pending redemption/i);

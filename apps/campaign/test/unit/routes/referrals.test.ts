@@ -62,7 +62,7 @@ describe("GET /referrals/:wallet/code", () => {
   it("returns the code for a valid wallet", async () => {
     mockGetOrCreateReferralCode.mockResolvedValue("abc12345");
     const res = await app.request(`/${REFERRER}/code`);
-    const body = await res.json();
+    const body = (await res.json()) as { code: string };
 
     expect(res.status).toBe(200);
     expect(body.code).toBe("abc12345");
@@ -94,7 +94,7 @@ describe("POST /referrals/credit", () => {
     const res = await post("/credit", { code: "abc", referredWallet: REFERRER });
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as { error: string };
     expect(body.error).toMatch(/refer yourself/i);
     expect(mockInsertReferralCredit).not.toHaveBeenCalled();
   });
@@ -131,7 +131,7 @@ describe("POST /referrals/credit", () => {
     });
 
     const res = await post("/credit", { code: "abc", referredWallet: REFERRED });
-    const body = await res.json();
+    const body = (await res.json()) as { credited: boolean; tier: string; basePoints: number };
 
     expect(res.status).toBe(200);
     expect(body).toEqual({ credited: true, tier: "full", basePoints: REFERRAL_BASE_POINTS });
@@ -160,7 +160,7 @@ describe("POST /referrals/credit", () => {
     });
 
     const res = await post("/credit", { code: "abc", referredWallet: REFERRED });
-    const body = await res.json();
+    const body = (await res.json()) as { tier: string; basePoints: number };
 
     expect(body.tier).toBe("floor");
     expect(body.basePoints).toBe(expectedBase);

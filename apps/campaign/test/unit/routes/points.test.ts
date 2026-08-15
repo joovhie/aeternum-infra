@@ -32,7 +32,7 @@ describe("GET /points/:wallet", () => {
     mockGetLedgerForWallet.mockResolvedValue([]);
 
     const res = await app.request(`/${WALLET}`);
-    const body = await res.json();
+    const body = (await res.json()) as { total: number; byPhase: Array<{ phase: string; total: number }> };
 
     expect(res.status).toBe(200);
     expect(body.total).toBe(200);
@@ -44,7 +44,7 @@ describe("GET /points/:wallet", () => {
     mockGetLedgerForWallet.mockResolvedValue([]);
 
     const res = await app.request(`/${WALLET}`);
-    const body = await res.json();
+    const body = (await res.json()) as { total: number };
 
     expect(body.total).toBe(0);
   });
@@ -55,7 +55,7 @@ describe("GET /points/:wallet", () => {
 
     const upper = `0x${"A".repeat(40)}`;
     const res = await app.request(`/${upper}`);
-    const body = await res.json();
+    const body = (await res.json()) as { wallet: string };
 
     expect(body.wallet).toBe(upper.toLowerCase());
   });
