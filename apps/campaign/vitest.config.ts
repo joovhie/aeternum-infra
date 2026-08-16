@@ -4,10 +4,18 @@ export default defineConfig({
   test: {
     setupFiles: ["./test/setup.ts"],
 
-    // Unit tests only for now — no integration/ suite yet, since there's no
-    // live Postgres or Galxe sandbox to run against in CI. Add
-    // test/integration when those are available, following apps/keeper's split.
-    include: ["test/unit/**/*.test.ts"],
+    // Includes test/integration now: test/integration/queries.test.ts runs
+    // against a real in-process Postgres (pglite) rather than a mock, for
+    // the constraint/upsert behavior mocks can't verify. See
+    // test/helpers/pglite.ts.
+    include: ["test/unit/**/*.test.ts", "test/integration/**/*.test.ts"],
+
+    // pglite's WASM cold start is ~4.5s per test file's beforeAll — well
+    // under vitest's 5s default hook timeout most of the time, but close
+    // enough to flake on a loaded CI runner. The per-file 15s override in
+    // queries.test.ts's beforeAll already covers this; this is a lower
+    // floor for everything else.
+    testTimeout: 10_000,
 
     pool: "forks",
     environment: "node",
