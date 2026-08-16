@@ -37,7 +37,7 @@ importers:
         version: 1.19.5(hono@4.12.27)
       drizzle-orm:
         specifier: ^0.30.0
-        version: 0.30.10(@electric-sql/pglite@0.2.13)(@opentelemetry/api@1.9.1)(kysely@0.26.3)(pg@8.22.0)(postgres@3.4.9)
+        version: 0.30.10(@electric-sql/pglite@0.5.5)(@opentelemetry/api@1.9.1)(kysely@0.26.3)(pg@8.22.0)(postgres@3.4.9)
       hono:
         specifier: ^4.12.23
         version: 4.12.27
@@ -51,6 +51,9 @@ importers:
         specifier: ^3.22.0
         version: 3.25.76
     devDependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.5.5
+        version: 0.5.5
       '@types/node':
         specifier: ^25.9.1
         version: 25.9.4
@@ -171,7 +174,7 @@ importers:
     dependencies:
       drizzle-orm:
         specifier: ^0.30.0
-        version: 0.30.10(@electric-sql/pglite@0.2.13)(@opentelemetry/api@1.9.1)(kysely@0.26.3)(pg@8.22.0)(postgres@3.4.9)
+        version: 0.30.10(@electric-sql/pglite@0.5.5)(@opentelemetry/api@1.9.1)(kysely@0.26.3)(pg@8.22.0)(postgres@3.4.9)
       postgres:
         specifier: ^3.4.0
         version: 3.4.9
@@ -220,6 +223,9 @@ packages:
 
   '@electric-sql/pglite@0.2.13':
     resolution: {integrity: sha512-YRY806NnScVqa21/1L1vaysSQ+0/cAva50z7vlwzaGiBOTS9JhdzIRHN0KfgMhobFAphbznZJ7urMso4RtMBIQ==}
+
+  '@electric-sql/pglite@0.5.5':
+    resolution: {integrity: sha512-QeZ+oB7QaU4EJj2awrB8hwFZ5TXxLRBQ9Gfq0dQauYDdWsRtuWRCERgtri35vRfL07KQHlVlc/4Qxvn7a5AXeA==}
 
   '@emnapi/core@1.11.1':
     resolution: {integrity: sha512-RSvbQmHzdKzNsLYa/wHrbc3KN4sYLKAdPZxqiM2HATqv/SBk2/ENSHpvXGaLOMcsAyz0poEGqkmmKYG3OWiJEQ==}
@@ -2657,6 +2663,8 @@ snapshots:
 
   '@electric-sql/pglite@0.2.13': {}
 
+  '@electric-sql/pglite@0.5.5': {}
+
   '@emnapi/core@1.11.1':
     dependencies:
       '@emnapi/wasi-threads': 1.2.2
@@ -3579,9 +3587,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.30.10(@electric-sql/pglite@0.2.13)(@opentelemetry/api@1.9.1)(kysely@0.26.3)(pg@8.22.0)(postgres@3.4.9):
+  drizzle-orm@0.30.10(@electric-sql/pglite@0.5.5)(@opentelemetry/api@1.9.1)(kysely@0.26.3)(pg@8.22.0)(postgres@3.4.9):
     optionalDependencies:
-      '@electric-sql/pglite': 0.2.13
+      '@electric-sql/pglite': 0.5.5
       '@opentelemetry/api': 1.9.1
       kysely: 0.26.3
       pg: 8.22.0
