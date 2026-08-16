@@ -1,83 +1,116 @@
-# @aeternum/campaign
+# Aeternum Campaign
 
-Points, scoring, and redemption for the Aeternum incentivized testnet —
-Sepolia phase (lower weight) through the mainnet phase (higher weight,
-real deposits) to a single ETH redemption paid to each participant's
-wallet at the end.
+Points, scoring, referrals, bug reports, and redemption for the Aeternum incentivized testnet. Participants earn points across Sepolia and mainnet, redeemable for ETH transferred to their wallet at campaign end.
 
-## What this is not
+## Features
 
-- Not a change to AeternumVault. Redemption is a plain ETH transfer to the
-  wallet, not a vault deposit — no `fundVault()`, no new contract function,
-  nothing added to what Hacken audits.
-- Not the source of truth for Sepolia/mainnet vault state — that's Ponder,
-  read via `@aeternum/db`. This service only owns its own tables (points,
-  bug reports, referrals, social bonus, snapshots, redemptions), living in
-  a separate `campaign` Postgres schema in the same database.
+- Multi-phase campaign scoring with phase-specific point weights
+- Referral system with decay curve for viral growth incentives
+- Bug report submission and curation workflow
+- Galxe quest completion integration
+- Anti-gaming checks (activity clustering, sybil detection infrastructure)
+- Snapshot-based redemption flow with treasury Safe support
+- Cron jobs for nightly scoring, monthly liveness checks, and Galxe sync
+- Unit and integration test suite with real in-process Postgres validation
 
-## Structure
+## Architecture
 
-- `src/db/` — campaign's own schema, client, and query helpers (migrated
-  via `drizzle-kit`, independent of Ponder's migrations).
-- `src/indexerReads/` — read-only queries against Ponder's tables, for
-  scoring only. See the multi-chain caveat in that file before running
-  mainnet scoring.
-- `src/scoring/` — point values, the referral decay curve, anti-gaming
-  checks, and the engine that turns on-chain activity into ledger entries.
-- `src/integrations/galxe.ts` — pulls quest completions from Galxe.
-- `src/api/` — the Hono app: leaderboard, points, referrals, bug reports,
-  redemption.
-- `src/redemption/` — pull-based claim flow. Proposes payouts to a
-  treasury Safe rather than sending funds directly — see
-  `redemption/treasury.ts`.
-- `src/jobs/` — standalone scripts, meant to run as Render Cron Jobs:
-  `nightlyScoring`, `monthlyLiveness`, `galxeSync`, and `snapshotFreeze`
-  (the last one manual-only — see the file header).
+- **src/db/** — Campaign's own schema and query helpers (Drizzle ORM, independent migrations)
+- **src/scoring/** — Point calculation engine, referral decay, anti-gaming checks
+- **src/api/** — REST API (Hono): leaderboard, points, referrals, bug reports, redemption endpoints
+- **src/redemption/** — Pull-based claim flow, treasury Safe integration
+- **src/indexerReads/** — Read-only queries against Ponder's vault tables for scoring
+- **src/integrations/galxe.ts** — Galxe quest completion polling
+- **src/jobs/** — Standalone cron scripts: nightlyScoring, monthlyLiveness, galxeSync, snapshotFreeze
+- **src/logger.ts** — Structured JSON logging
 
-## Test coverage
+## Setup
 
-Unit tests (`test/unit/`) cover scoring, anti-gaming, the redemption
-executor, and every API route, using `vi.mock` at each module boundary.
-`test/integration/queries.test.ts` is different in kind — it runs the real
-`db/queries.ts` functions against a real, in-process Postgres
-(`@electric-sql/pglite`, WASM-compiled — not a mock), specifically to
-verify the constraint-dependent behavior a mock can't: does a duplicate
-ledger entry actually get rejected, does a snapshot upsert actually update
-in place rather than duplicate, does the treasury sum actually aggregate
-correctly. See `test/helpers/pglite.ts` for why it's structured as one
-instance per file with truncation between tests rather than a fresh
-instance per test (WASM cold start is ~4.5s; truncation is ~3ms).
+1. Install dependencies (from the monorepo root):
 
-## Known gaps, honestly
+```bash
+pnpm install
+```
 
-- **Funding-source clustering is not implemented** (`scoring/antiGaming.ts`).
-  The indexer doesn't currently capture a wallet's first inbound transfer,
-  which is what would reveal a shared funder across sybil wallets. Needs
-  either a separate RPC-tracing process or a third-party service.
-- **Safe integration is stubbed** (`redemption/treasury.ts`). No treasury
-  Safe exists yet; `proposeSafeTransaction` logs what it would do instead
-  of doing it.
-- **Galxe's exact GraphQL field names are unverified** (`integrations/galxe.ts`).
-  The endpoint, auth, pagination, and error handling are all tested against
-  real (mocked) HTTP responses now — what's still unverified is only
-  whether `QUEST_COMPLETIONS_QUERY`'s field names match Galxe's actual live
-  schema, which needs a real Space and access token to confirm against
-  their GraphQL Playground.
+2. Configure environment variables. Shared variables (`CHAIN_ID`, `RPC_URL`, `CONTRACT_ADDRESS`, `DATABASE_URL`) come from the root `.env`. Campaign-specific variables go in `apps/campaign/.env`:
 
-## Resolved since the initial build
+```bash
+# Optional — see Configuration below; defaults to 1
+CAMPAIGN_MAINNET_WEIGHT_MULTIPLIER=3
 
-- **Multi-chain indexing is now in place.** `vaults.id` in
-  `ponder.schema.ts` has a `${chainId}-${wallet}` composite key, and every
-  scoring function threads `chainId` through explicitly. `apps/keeper`'s
-  scanner and the `packages/db` query helpers were updated to match.
-- **This has been run for real** — `pnpm build` passes across the whole
-  monorepo, migrations apply cleanly against a live Neon database, the API
-  server boots, and the full test suite (unit + the pglite-backed
-  integration suite) passes.
+# Optional — wei threshold for dust filtering (default: 0)
+CAMPAIGN_DEPOSIT_DUST_THRESHOLD_WEI=1000000000000000000
 
-## Env vars marked TBD
+# Optional — points-to-ETH conversion rate (default: 0)
+CAMPAIGN_POINTS_TO_WEI_RATE=1000000000000000
 
-`CAMPAIGN_MAINNET_WEIGHT_MULTIPLIER`, `CAMPAIGN_DEPOSIT_DUST_THRESHOLD_WEI`,
-`CAMPAIGN_POINTS_TO_WEI_RATE`, and `CAMPAIGN_TREASURY_BUDGET_WEI` all ship
-with safe-but-arbitrary defaults (mostly zero) rather than real values —
-grep the codebase for "TBD" before this runs against real money.
+# Optional — total ETH budget for redemptions (default: 0)
+CAMPAIGN_TREASURY_BUDGET_WEI=1000000000000000000
+
+# Galxe integration (if running galxeSync job)
+GALXE_API_KEY=YourGalxeApiKeyHere
+```
+
+## Scripts
+
+```bash
+cd apps/campaign
+pnpm dev               # Start API server in development mode
+pnpm build             # Build TypeScript to dist/
+pnpm lint              # Type check with TypeScript
+pnpm test              # Run all tests
+pnpm test:unit         # Run unit tests only
+pnpm test:integration  # Run integration tests only
+pnpm test:watch        # Run tests in watch mode
+pnpm test:coverage     # Run tests with a coverage report
+```
+
+## Configuration
+
+- **Campaign phases** — Configured via `CAMPAIGN_MAINNET_WEIGHT_MULTIPLIER`. Sepolia phase uses weight = 1; mainnet phase multiplies by this value. Default is 1 (equivalent weights).
+- **Dust filtering** — Points from deposits below `CAMPAIGN_DEPOSIT_DUST_THRESHOLD_WEI` are filtered during scoring. Default is 0 (no filtering).
+- **Point-to-ETH rate** — `CAMPAIGN_POINTS_TO_WEI_RATE` defines the redemption conversion. Unset or 0 disables redemptions. **Grep for "TBD" before running against real money.**
+- **Treasury budget** — `CAMPAIGN_TREASURY_BUDGET_WEI` caps total payout. Default is 0.
+
+## How It Works
+
+1. **Scoring cycle** (nightly):
+   - Queries Ponder's vault tables for deposits, withdrawals, and activity
+   - Applies phase-appropriate weight multiplier
+   - Runs anti-gaming checks and filters dust
+   - Writes ledger entries (points awarded per wallet)
+   - Updates leaderboard snapshot
+
+2. **Referrals**:
+   - Referrer earns bonus for each unique referee's deposits
+   - Bonus decays with successive referrals to incentivize breadth over sybils
+
+3. **Redemption** (pull-based):
+   - Participant requests payout
+   - System proposes transaction to treasury Safe
+   - Fund transfer occurs via plain ETH transfer, not vault deposit
+
+4. **Cron jobs**:
+   - **nightlyScoring** — Runs the scoring cycle
+   - **monthlyLiveness** — Validates active participants
+   - **galxeSync** — Polls Galxe API for quest completions
+   - **snapshotFreeze** — Manual snapshot export (see file header)
+
+## Testing
+
+- **Unit tests** (`test/unit/`) — Scoring logic, anti-gaming checks, API routes with mocked dependencies
+- **Integration tests** (`test/integration/`) — Real in-process Postgres (`@electric-sql/pglite`) validation. Verifies constraint behavior, upserts, aggregations, and ledger uniqueness that mocks cannot.
+  - `queries.test.ts` runs a single shared PGlite instance with truncation between tests (cold start ~4.5s, truncation ~3ms)
+
+## Known Gaps
+
+- **Funding-source clustering** — Not implemented. Requires RPC tracing to detect shared funders across sybil wallets.
+- **Safe integration** — Stubbed. `proposeSafeTransaction` logs instead of executing.
+- **Galxe field verification** — Schema field names are untested against live Galxe GraphQL endpoint; requires real Space and access token.
+
+## Notes
+
+- Drizzle ORM manages campaign schema independently from Ponder's migrations
+- Multi-chain support: `chainId` is threaded through scoring and stored in ledger entries
+- Uses Zod for environment variable validation
+- Structured JSON logs for observability
