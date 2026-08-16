@@ -27,6 +27,7 @@
 
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
+import type { CampaignDbClient } from "../../src/db/client.js";
 import * as schema from "../../src/db/schema.js";
 
 const SCHEMA_SQL = `
@@ -112,10 +113,10 @@ const TABLES = [
   "campaign.social_bonus",
 ] as const;
 
-export async function createTestDb() {
+export async function createTestDb(): Promise<{ db: CampaignDbClient; client: PGlite }> {
   const client = new PGlite();
   await client.exec(SCHEMA_SQL);
-  const db = drizzle(client, { schema });
+  const db = drizzle(client, { schema }) as unknown as CampaignDbClient;
   return { db, client };
 }
 
