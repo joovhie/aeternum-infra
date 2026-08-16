@@ -188,7 +188,7 @@ describe("snapshots", () => {
     const snap = await getSnapshotForWallet(db(), "0xAAA");
     expect(snap?.totalPoints).toBe(250);
 
-    const all = await getAllWalletTotals(db()); // sanity: no stray second row anywhere
+    const all = await db().select().from((await import("../../src/db/schema.js")).snapshots);
     expect(all.filter((w) => w.wallet === "0xaaa")).toHaveLength(1);
   });
 });
