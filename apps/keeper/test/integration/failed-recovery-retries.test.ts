@@ -40,7 +40,7 @@ const mockGetDueVaults = vi.mocked(getDueVaults);
 const mockParseEventLogs = vi.mocked(parseEventLogs);
 
 // Wallet with a backup address that rejects ETH transfers
-const vaultWithBadBackup = { ...dueVault, id: WALLET_B, backupAddress: BACKUP_B };
+const vaultWithBadBackup = { ...dueVault, id: `11155111-${WALLET_B}`, wallet: WALLET_B, backupAddress: BACKUP_B };
 
 describe("integration: failed recovery is logged and remains retriable", () => {
   let db: ReturnType<typeof createMockDb>;
