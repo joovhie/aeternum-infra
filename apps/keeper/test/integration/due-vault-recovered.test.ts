@@ -30,7 +30,7 @@ import { createMockPublicClient, createMockWalletClient, createMockDb } from "..
 import { dueVault, WALLET_A, BACKUP_A, ONE_ETH } from "../fixtures/vaults.js";
 import { executedLog, eventLogsByName } from "../fixtures/event-logs.js";
 import { createReceipt, TX_HASH_1 } from "../fixtures/receipts.js";
-import { CONTRACT_ADDRESS } from "../fixtures/env.js";
+import { CONTRACT_ADDRESS, mockSharedEnv } from "../fixtures/env.js";
 
 const mockGetDueVaults = vi.mocked(getDueVaults);
 const mockParseEventLogs = vi.mocked(parseEventLogs);
@@ -57,13 +57,13 @@ describe("integration: due vault is recovered end-to-end", () => {
   });
 
   it("scan confirms the wallet as due after DB pre-filter and onchain validation", async () => {
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
     expect(dueWallets).toEqual([WALLET_A]);
   });
 
   it("execute submits triggerRecovery via Multicall3 for the confirmed wallet", async () => {
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     expect(walletClient.writeContract).toHaveBeenCalledOnce();
@@ -73,7 +73,7 @@ describe("integration: due vault is recovered end-to-end", () => {
   });
 
   it("logs RecoveryExecuted with the correct wallet, backup address, and amount", async () => {
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     expect(logger.info).toHaveBeenCalledWith(
@@ -87,7 +87,7 @@ describe("integration: due vault is recovered end-to-end", () => {
   it("full pipeline: zero due wallets means execute is never reached", async () => {
     mockGetDueVaults.mockResolvedValueOnce([]);
 
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     if (dueWallets.length > 0) {
       await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
     }
@@ -96,7 +96,7 @@ describe("integration: due vault is recovered end-to-end", () => {
   });
 
   it("logs a batch confirmation summary with recovered: 1", async () => {
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     expect(logger.info).toHaveBeenCalledWith(

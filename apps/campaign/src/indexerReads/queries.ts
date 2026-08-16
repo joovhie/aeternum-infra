@@ -5,22 +5,22 @@
  * vault_transactions) via @aeternum/db, for scoring purposes only.
  * Campaign never writes to these tables — only Ponder does.
  *
- * IMPORTANT — multi-chain caveat: as of this writing, apps/indexer only
- * indexes Sepolia, and vaults.id is the bare wallet address with no chain
- * discriminator (see the build plan's "existing files this touches"
- * section). These queries will need a chainId filter added the moment
- * mainnet indexing goes live, or Sepolia and mainnet activity for the same
- * wallet will be indistinguishable here. Not fixed in this pass —
- * tracked as a follow-up against apps/indexer/ponder.schema.ts.
+ * MULTI-CHAIN UPDATE: apps/indexer now stamps chainId on every row, and
+ * packages/db's getDueVaults/getVaultByAddress/getActiveVaultCount all
+ * require it — see the build plan's "existing files this touches" note,
+ * now resolved. Every function below takes a chainId and filters on it,
+ * so Sepolia-phase and mainnet-phase scoring can never accidentally read
+ * each other's activity.
  */
 
 import { and, eq, gte, sql } from "drizzle-orm";
 import type { DbClient } from "@aeternum/db";
 import { vaults, vaultTransactions } from "@aeternum/db";
 
-/** All vault_transactions rows for a wallet, optionally since a given unix timestamp (for incremental nightly scoring). */
+/** All vault_transactions rows for a wallet on a given chain, optionally since a given unix timestamp (for incremental nightly scoring). */
 export async function getTransactionsForWallet(
   db: DbClient,
+  chainId: number,
   wallet: string,
   sinceUnixSeconds?: bigint,
 ) {
@@ -29,30 +29,45 @@ export async function getTransactionsForWallet(
     .from(vaultTransactions)
     .where(
       and(
+        eq(vaultTransactions.chainId, chainId),
         sql`lower(${vaultTransactions.wallet}) = lower(${wallet})`,
         sinceUnixSeconds !== undefined ? gte(vaultTransactions.timestamp, sinceUnixSeconds) : undefined,
       ),
     );
 }
 
-/** All vault_transactions of a given type across every wallet, since a timestamp — the primary feed for the nightly scoring job. */
+/** All vault_transactions of a given type on a given chain, since a timestamp — the primary feed for the nightly scoring job. */
 export async function getTransactionsByType(
   db: DbClient,
+  chainId: number,
   type: string,
   sinceUnixSeconds: bigint,
 ) {
   return db
     .select()
     .from(vaultTransactions)
-    .where(and(eq(vaultTransactions.type, type), gte(vaultTransactions.timestamp, sinceUnixSeconds)));
+    .where(
+      and(
+        eq(vaultTransactions.chainId, chainId),
+        eq(vaultTransactions.type, type),
+        gte(vaultTransactions.timestamp, sinceUnixSeconds),
+      ),
+    );
 }
 
-/** Every currently-registered vault that hasn't recovered, been abandoned, or been cancelled — the population the monthly liveness checkpoint runs over. */
-export async function getLiveVaults(db: DbClient) {
+/** Every currently-registered vault on a given chain that hasn't recovered, been abandoned, or been cancelled — the population the monthly liveness checkpoint runs over. Always called with the mainnet chain id — liveness is a mainnet-only concept. */
+export async function getLiveVaults(db: DbClient, chainId: number) {
   return db
     .select()
     .from(vaults)
-    .where(and(eq(vaults.isRecovered, false), eq(vaults.isAbandoned, false), eq(vaults.isCancelled, false)));
+    .where(
+      and(
+        eq(vaults.chainId, chainId),
+        eq(vaults.isRecovered, false),
+        eq(vaults.isAbandoned, false),
+        eq(vaults.isCancelled, false),
+      ),
+    );
 }
 
 /**
@@ -65,6 +80,7 @@ export async function getLiveVaults(db: DbClient) {
  */
 export async function hadEarlyWithdrawal(
   db: DbClient,
+  chainId: number,
   wallet: string,
   atTimestamp: bigint,
   minHoldSeconds: number,
@@ -76,6 +92,7 @@ export async function hadEarlyWithdrawal(
     .from(vaultTransactions)
     .where(
       and(
+        eq(vaultTransactions.chainId, chainId),
         sql`lower(${vaultTransactions.wallet}) = lower(${wallet})`,
         sql`${vaultTransactions.type} in ('WITHDRAWAL', 'SENT')`,
         gte(vaultTransactions.timestamp, atTimestamp),

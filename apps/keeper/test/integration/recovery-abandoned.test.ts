@@ -32,7 +32,7 @@ import { createMockPublicClient, createMockWalletClient, createMockDb } from "..
 import { dueVault, WALLET_A, BACKUP_A, ONE_ETH } from "../fixtures/vaults.js";
 import { abandonedLog, eventLogsByName } from "../fixtures/event-logs.js";
 import { createReceipt, TX_HASH_1 } from "../fixtures/receipts.js";
-import { CONTRACT_ADDRESS } from "../fixtures/env.js";
+import { CONTRACT_ADDRESS, mockSharedEnv } from "../fixtures/env.js";
 
 const mockGetDueVaults = vi.mocked(getDueVaults);
 const mockParseEventLogs = vi.mocked(parseEventLogs);
@@ -60,7 +60,7 @@ describe("integration: recovery abandoned after MAX_RECOVERY_ATTEMPTS", () => {
   });
 
   it("logs RecoveryAbandoned via logger.warn with wallet, backup address, and remaining balance", async () => {
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     expect(logger.warn).toHaveBeenCalledWith(
@@ -70,7 +70,7 @@ describe("integration: recovery abandoned after MAX_RECOVERY_ATTEMPTS", () => {
   });
 
   it("does not log RecoveryExecuted or RecoveryFailed for the abandoned wallet", async () => {
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     expect(logger.info).not.toHaveBeenCalledWith("Recovery executed", expect.anything());
@@ -81,7 +81,7 @@ describe("integration: recovery abandoned after MAX_RECOVERY_ATTEMPTS", () => {
   });
 
   it("batch summary reflects abandoned: 1, recovered: 0, failed: 0", async () => {
-    const dueWallets = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const dueWallets = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, dueWallets);
 
     expect(logger.info).toHaveBeenCalledWith(
@@ -92,7 +92,7 @@ describe("integration: recovery abandoned after MAX_RECOVERY_ATTEMPTS", () => {
 
   it("an abandoned wallet does not reappear in a subsequent scan cycle", async () => {
     // Cycle 1 — abandonment occurs
-    const cycle1 = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const cycle1 = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
     await execute(walletClient, publicClient, CONTRACT_ADDRESS, cycle1);
 
     // getDueVaults filters on isAbandoned = false at the DB layer (see
@@ -100,7 +100,7 @@ describe("integration: recovery abandoned after MAX_RECOVERY_ATTEMPTS", () => {
     // RecoveryAbandoned event, this wallet is excluded from future results.
     mockGetDueVaults.mockResolvedValue([]);
 
-    const cycle2 = await scan(db, publicClient, CONTRACT_ADDRESS, 1000);
+    const cycle2 = await scan(db, mockSharedEnv.CHAIN_ID, publicClient, CONTRACT_ADDRESS, 1000);
 
     expect(cycle2).toEqual([]);
     // No second transaction submitted for the abandoned wallet

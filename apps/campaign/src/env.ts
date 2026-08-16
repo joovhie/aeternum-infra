@@ -69,6 +69,18 @@ const campaignEnvSchema = z.object({
   GALXE_SPACE_ID: z.string().min(1).optional(),
   GALXE_CAMPAIGN_ID: z.string().min(1).optional(),
   GALXE_API_URL: z.string().url().default("https://graphigo-business.prd.galaxy.eco/query"),
+
+  // --- Multi-chain gate ---
+  // Set to "true" once apps/indexer is actually tracking mainnet (see its
+  // ponder.config.ts mainnetConfigured gate). Until then, mainnet-scoped
+  // jobs (mainnet registration scoring, the liveness checkpoint) skip
+  // themselves explicitly rather than running against a chain with no
+  // indexed data and silently awarding nothing every time.
+  MAINNET_INDEXING_LIVE: z
+  .string()
+  .optional()
+  .default("false")
+  .transform((val) => val === "true"),
 });
 
 const campaignParsed = campaignEnvSchema.safeParse(process.env);

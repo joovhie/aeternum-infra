@@ -32,7 +32,9 @@ export const ONE_ETH = 1_000_000_000_000_000_000n;
 // --- Base template ---
 
 const BASE: Vault = {
-  id:                    WALLET_A,
+  id:                    `11155111-${WALLET_A}`,
+  chainId:               11155111,
+  wallet:                WALLET_A,
   backupAddress:         BACKUP_A,
   inactivityPeriod:      ONE_YEAR,
   lastActivityTimestamp: NOW - ONE_YEAR - ONE_DAY, // 1 year + 1 day ago
@@ -50,7 +52,8 @@ export const dueVault: Vault = { ...BASE };
 /** Halfway through inactivity period — not yet eligible */
 export const activeVault: Vault = {
   ...BASE,
-  id:                    WALLET_B,
+  id:                    `11155111-${WALLET_B}`,
+  wallet:                WALLET_B,
   backupAddress:         BACKUP_B,
   lastActivityTimestamp: NOW - ONE_YEAR / 2n,
 };
@@ -88,8 +91,8 @@ export const zeroBalanceVault: Vault = {
 /** Three wallets all past their deadline */
 export const threeDueVaults: Vault[] = [
   dueVault,
-  { ...dueVault, id: WALLET_B, backupAddress: BACKUP_B },
-  { ...dueVault, id: WALLET_C, backupAddress: BACKUP_C },
+  { ...dueVault, id: `11155111-${WALLET_B}`, wallet: WALLET_B, backupAddress: BACKUP_B },
+  { ...dueVault, id: `11155111-${WALLET_C}`, wallet: WALLET_C, backupAddress: BACKUP_C },
 ];
 
 /** Mix of one due and one active — scanner should return only the due one */

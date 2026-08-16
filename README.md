@@ -3,10 +3,11 @@
 [![Lint](https://github.com/Aeternumlabs/aeternum-infra/actions/workflows/lint.yml/badge.svg)](https://github.com/Aeternumlabs/aeternum-infra/actions/workflows/lint.yml)
 [![Tests](https://github.com/Aeternumlabs/aeternum-infra/actions/workflows/test.yml/badge.svg)](https://github.com/Aeternumlabs/aeternum-infra/actions/workflows/test.yml)
 
-This repo houses the off-chain infrastructure supporting the Aeternum protocol, including indexing, automation, monitoring, and backend services.
+This repo houses the off-chain infrastructure supporting the Aeternum protocol, including indexing, automation, monitoring, and campaign backend services.
 
 ## Apps
 
+- **campaign** — Points, scoring, referrals, bug reports, and redemption flows for the Aeternum campaign
 - **indexer** — On-chain event indexer for AeternumVault with GraphQL + REST API
 - **keeper** — Automated recovery bot that scans for due vaults and executes recoveries
 - **notifications** — (coming soon) Notification service for protocol events
@@ -28,6 +29,16 @@ This repo houses the off-chain infrastructure supporting the Aeternum protocol, 
 aeternum-infra/
 │
 ├── apps/
+│   │
+│   ├── campaign/                         ← Scoring, referral, bug-report, and redemption service
+│   │   ├── drizzle/                      ← Drizzle migrations and schema metadata
+│   │   ├── .env.example                  ← campaign-specific env vars
+│   │   ├── package.json
+│   │   ├── README.md                     ← campaign documentation
+│   │   ├── src/                          ← source code
+│   │   ├── test/                         ← unit + integration tests
+│   │   ├── tsconfig.json                 ← extends ../../tsconfig.json
+│   │   └── vitest.config.ts              ← test configuration
 │   │
 │   ├── indexer/                          ← Ponder-based event indexer
 │   │   ├── .env.example                  ← indexer-specific env vars

@@ -18,6 +18,12 @@
  * _executeRecovery — this scanner is an efficiency layer, not a
  * security boundary. If validation logic ever drifts, the contract
  * is always the final arbiter.
+ *
+ * MULTI-CHAIN UPDATE: getDueVaults now requires a chainId and returns
+ * rows keyed by a composite id (`${chainId}-${wallet}`) — candidates are
+ * now built from row.wallet, not row.id. Previously this cast row.id
+ * directly to an address, which silently breaks the moment vaults.id
+ * stops being the bare wallet address.
  */
 
 import { AETERNUM_VAULT_ABI, type ViemPublicClient } from "@aeternum/blockchain";
@@ -35,6 +41,9 @@ type IsRecoveryDueResult =
  * wallet addresses ready for triggerRecovery submission.
  *
  * @param db              Drizzle DB client (read-only).
+ * @param chainId         Chain this keeper deployment operates on
+ *                        (env.CHAIN_ID). A keeper only ever scans and
+ *                        acts on its own chain.
  * @param publicClient    Viem public client for onchain validation.
  * @param contractAddress AeternumVault contract address.
  * @param dbScanLimit     Max candidates to pull from DB per cycle.
@@ -42,6 +51,7 @@ type IsRecoveryDueResult =
  */
 export async function scan(
   db: DbClient,
+  chainId: number,
   publicClient: ViemPublicClient,
   contractAddress: Address,
   dbScanLimit: number,
@@ -50,8 +60,8 @@ export async function scan(
   let candidates: Address[];
 
   try {
-    const rows = await getDueVaults(db, dbScanLimit);
-    candidates = rows.map((r) => r.id as Address);
+    const rows = await getDueVaults(db, chainId, dbScanLimit);
+    candidates = rows.map((r) => r.wallet as Address);
   } catch (err) {
     logger.error("Scanner: DB query failed, skipping cycle", {
       error: err instanceof Error ? err.message : String(err),
