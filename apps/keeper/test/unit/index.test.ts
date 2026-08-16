@@ -290,6 +290,7 @@ describe("index.ts — keeper cycle", () => {
 
     expect(hoisted.scan).toHaveBeenCalledWith(
       { __type: "dbClient" },
+      mockSharedEnv.CHAIN_ID,
       { __type: "publicClient" },
       mockSharedEnv.CONTRACT_ADDRESS,
       1_000,
