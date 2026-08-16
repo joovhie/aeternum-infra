@@ -34,6 +34,20 @@ wallet at the end.
   `nightlyScoring`, `monthlyLiveness`, `galxeSync`, and `snapshotFreeze`
   (the last one manual-only — see the file header).
 
+## Test coverage
+
+Unit tests (`test/unit/`) cover scoring, anti-gaming, the redemption
+executor, and every API route, using `vi.mock` at each module boundary.
+`test/integration/queries.test.ts` is different in kind — it runs the real
+`db/queries.ts` functions against a real, in-process Postgres
+(`@electric-sql/pglite`, WASM-compiled — not a mock), specifically to
+verify the constraint-dependent behavior a mock can't: does a duplicate
+ledger entry actually get rejected, does a snapshot upsert actually update
+in place rather than duplicate, does the treasury sum actually aggregate
+correctly. See `test/helpers/pglite.ts` for why it's structured as one
+instance per file with truncation between tests rather than a fresh
+instance per test (WASM cold start is ~4.5s; truncation is ~3ms).
+
 ## Known gaps, honestly
 
 - **Funding-source clustering is not implemented** (`scoring/antiGaming.ts`).
@@ -44,16 +58,22 @@ wallet at the end.
   Safe exists yet; `proposeSafeTransaction` logs what it would do instead
   of doing it.
 - **Galxe's exact GraphQL field names are unverified** (`integrations/galxe.ts`).
-  The endpoint and auth are confirmed against Galxe's docs; the query
-  shape is a reasonable placeholder — check it against the Playground
-  schema before going live.
-- **Multi-chain indexing isn't in place yet.** `vaults.id` in
-  `ponder.schema.ts` has no chain discriminator — see the build plan's
-  "Existing aeternum-infra files this touches" section. Don't point
-  mainnet scoring at a database also indexing Sepolia until that's fixed.
-- **This hasn't been run through `pnpm install` / `tsc` / `vitest`** in
-  the environment it was written in — no live Postgres or workspace
-  install was available. Run `pnpm install && pnpm --filter @aeternum/campaign build && pnpm --filter @aeternum/campaign test` after dropping this in, before trusting it.
+  The endpoint, auth, pagination, and error handling are all tested against
+  real (mocked) HTTP responses now — what's still unverified is only
+  whether `QUEST_COMPLETIONS_QUERY`'s field names match Galxe's actual live
+  schema, which needs a real Space and access token to confirm against
+  their GraphQL Playground.
+
+## Resolved since the initial build
+
+- **Multi-chain indexing is now in place.** `vaults.id` in
+  `ponder.schema.ts` has a `${chainId}-${wallet}` composite key, and every
+  scoring function threads `chainId` through explicitly. `apps/keeper`'s
+  scanner and the `packages/db` query helpers were updated to match.
+- **This has been run for real** — `pnpm build` passes across the whole
+  monorepo, migrations apply cleanly against a live Neon database, the API
+  server boots, and the full test suite (unit + the pglite-backed
+  integration suite) passes.
 
 ## Env vars marked TBD
 
