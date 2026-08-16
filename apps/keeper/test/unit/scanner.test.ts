@@ -21,7 +21,7 @@ import { getDueVaults } from "@aeternum/db";
 import { scan } from "../../src/scanner.js";
 import { logger } from "../../src/logger.js";
 import { createMockPublicClient, createMockDb } from "../helpers/mocks.js";
-import { dueVault, activeVault, WALLET_A, WALLET_B, WALLET_C } from "../fixtures/vaults.js";
+import { dueVault, activeVault, WALLET_A, WALLET_B, WALLET_C, BACKUP_C } from "../fixtures/vaults.js";
 import { CONTRACT_ADDRESS, mockSharedEnv } from "../fixtures/env.js";
 
 const mockGetDueVaults = vi.mocked(getDueVaults);
@@ -252,7 +252,7 @@ describe("scanner.scan", () => {
     it("preserves candidate ordering in the returned array", async () => {
       mockGetDueVaults.mockResolvedValue([
         dueVault,
-        { ...activeVault, id: WALLET_C },
+        { ...activeVault, id: `11155111-${WALLET_C}`, wallet: WALLET_C, backupAddress: BACKUP_C },
       ]);
       publicClient.multicall.mockResolvedValue([
         { status: "success", result: true },
